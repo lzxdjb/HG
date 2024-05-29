@@ -158,7 +158,7 @@ class OptimizeProblem(Vertex, Edge):
 
 
 class NaiveQuestion(Vertex, Edge):
-    def __init__(self, id, data, start_vertex, end_vertex, A , B,  Q , R , T , horizon):
+    def __init__(self, id, data, start_vertex, end_vertex, A , B,  Q , R , T , horizon , state_shape , control_shape):
         Vertex.__init__(self, id, data)
         Edge.__init__(self, start_vertex, end_vertex)
 
@@ -173,8 +173,11 @@ class NaiveQuestion(Vertex, Edge):
         self.total_cost = 0
         self.T = T
         self.horizon = horizon
+        self.state_shape = state_shape
+        self.control_shape = control_shape
 
-    def setup_problem(self, t_grid, x_initial, x_final, control_bounds, state_bounds):
+
+    def setup_problem(self, x_initial, x_final , control_bounds, state_bounds):
         """
         Setup the time grid, initial and final states, and bounds for the optimization problem.
         :param t_grid: Tensor of time grid points
@@ -183,20 +186,23 @@ class NaiveQuestion(Vertex, Edge):
         :param control_bounds: Tuple of tensors (u_min, u_max)
         :param state_bounds: Tuple of tensors (x_min, x_max)
         """
-        self.time_grid = t_grid
         # self.check_shapes(self.time_grid)
 
-        self.states = [x_initial] + [torch.zeros_like(x_initial).cuda() for _ in range(self.horizon - 1)] 
-        # self.check_shapes(self.states)
+        self.states = [x_initial] + [torch.zeros_like(x_initial).cuda() for _ in range(self.horizon)] 
+        self.check_shapes(self.states)
 
-        self.controls = [torch.zeros_like(control_bounds[0]).cuda() for _ in range(len(self.horizon))]
-        # self.check_shapes(self.controls)
+        u_init = torch.tensor([0.0, 0.0 ], device='cuda')
+        self.controls = [torch.zeros_like(u_init).cuda() for _ in range(self.horizon)]
+        self.check_shapes(self.controls)
 
         self.control_bounds = control_bounds
-        # self.check_shapes(self.control_bounds)
+        self.check_shapes(self.control_bounds)
 
         self.state_bounds = state_bounds
-        # self.check_shapes(self.state_bounds)
+        self.check_shapes(self.state_bounds)
+
+        self.x_initial = x_initial
+        self.x_final = x_final
 
 
     def check_shapes(self , states):
@@ -226,8 +232,9 @@ class NaiveQuestion(Vertex, Edge):
         :return: Cost tensor
         """
         # Example cost: quadratic cost (can be replaced with actual cost function)
-      
-        return x.t() @ self.Q @ x + u.t() @ self.R @ u
+        diff = self.x_initial - self.x_final
+        torch.matmul(torch.matmul(diff.t(), self.Q), diff)
+        return  torch.matmul(torch.matmul(diff.t(), self.Q), diff) #sdasd
 
     def DirectCollocationCost(self):
         """
@@ -236,9 +243,9 @@ class NaiveQuestion(Vertex, Edge):
         total_cost = 0.0
         delta_t = self.time_grid[1:] - self.time_grid[:-1]
 
-        # print("x_k = " , np.array(self.states).shape)
-        # print("u_k = " , np.array(self.controls).shape)
-        for k in range(len(delta_t) ):
+        total_cost += (self.x_initial - self.x_final).t() @ self.Q @ (self.x_initial - self.x_final)
+
+        for k in range(self.horizon ):
             print("k = " , k)
             x_k = self.states[k]
             x_k1 = self.states[k + 1]
@@ -254,8 +261,19 @@ class NaiveQuestion(Vertex, Edge):
         return total_cost
     
     def SingleShootingCost(self):
-        total_cost = 0.0
+        total_cost = torch.tensor(0.0).cuda() 
+        diff = self.x_initial - self.x_final
+
+        temp = torch.matmul(diff.t() , self.Q)
+        
+        total_cost +=  torch.matmul(torch.matmul(diff.t(), self.Q), diff)
+
         for k in range(self.horizon):
+            print("k = " , k)
+            total_cost += self.cost_function(self.states[k + 1] , self.controls[k])
+            
+        self.total_cost = total_cost
+        return total_cost
 
 
 
