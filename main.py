@@ -12,7 +12,8 @@ A = np.identity(state_size)
 B = np.zeros((state_size, control_size))
 
 Q = np.identity(state_size) #
-Q  = Q * 10
+Q  = Q * 1
+# Q[2 , 2] = 100
 
 R = np.identity(control_size) # 
 
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     # Assuming xx is a list of tensors on CUDA
     xx = [tensor.cpu().numpy().reshape(3 , 1) for tensor in xx]
 
-    print("x_final = " , x_final.shape)
+    # print("x_final = " , x_final.shape)
     draw_result = Draw_MPC_point_stabilization_v1(
         rob_diam=0.3, init_state=x_initial.reshape(3 , 1), target_state=x_final.reshape(3 , 1), robot_states=xx
     )

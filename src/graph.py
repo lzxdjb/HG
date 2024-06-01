@@ -74,9 +74,6 @@ class NaiveQuestion(Vertex, Edge):
         self.x_initial = x_initial
         self.x_final = x_final
 
-        # self.B = torch.tensor([[ torch.cos(self.x_initial[0][2]), 0], 
-        #                        [torch.sin(self.x_initial[0][2]) , 0],
-        #                        [0 , 1]] , device='cuda' , dtype=torch.float64)
 
         self.B = torch.tensor([[-1, 0], 
                                [-1 , 0],
@@ -89,68 +86,6 @@ class NaiveQuestion(Vertex, Edge):
 
         # print()
 
-
-    def dynamics(self, x, u):
-        """
-        Define the system dynamics function f(x, u).
-        :param x: State tensor
-        :param u: Control tensor
-        :return: Dynamics tensor
-        """
-        # Example dynamics: simple linear system (can be replaced with actual dynamics)
-        A = torch.eye(x.size(0)).cuda()  # Identity matrix as placeholder
-        B = torch.ones((x.size(0), u.size(0))).cuda()  # Ones matrix as placeholder
-        return self.A @ x + self.B @ u
-
-    def cost_function(self, x, u):
-        """
-        Define the cost function l(x, u).
-        :param x: State tensor
-        :param u: Control tensor
-        :return: Cost tensor
-        """
-        # Example cost: quadratic cost (can be replaced with actual cost function)
-        diff = x - self.x_final
-        return  torch.matmul(torch.matmul(diff, self.Q), diff.t())[0][0] #sdasd
-
-    def DirectCollocationCost(self):
-        """
-        Compute the total cost using Simpson quadrature.
-        """
-        total_cost = 0.0
-        delta_t = self.time_grid[1:] - self.time_grid[:-1]
-
-        total_cost += (self.x_initial - self.x_final).t() @ self.Q @ (self.x_initial - self.x_final)
-
-        for k in range(self.horizon ):
-            print("k = " , k)
-            x_k = self.states[k]
-            x_k1 = self.states[k + 1]
-            u_k = self.controls[k]
-            u_k1 = self.controls[k + 1]
-            u_mid = (u_k + u_k1) / 2
-            x_mid = (x_k + x_k1) / 2
-            l_k = self.cost_function(x_k, u_k)
-            l_mid = self.cost_function(x_mid, u_mid)
-            l_k1 = self.cost_function(x_k1, u_k1)
-            total_cost += (delta_t[k] / 6) * (l_k + 4 * l_mid + l_k1)
-        self.total_cost = total_cost
-        return total_cost
-    
-
-    def ShootingCost(self):
-
-        total_cost = torch.tensor(0.0).cuda() 
-
-        for k in range(self.horizon):
-            # print("k = " , k)
-            # print("cost_function = " , self.cost_function(self.states[k] , self.controls[k])[0][0])
-            total_cost += self.cost_function(self.states[k] , self.controls[k])
-        
-        total_cost +=  torch.matmul(torch.matmul(self.states[k+1], self.Q), self.states[k+1].t())[0][0]
-
-        self.total_cost = total_cost * 1 / 2
-        return total_cost
     
     
     def getHessian(self,horizon):
@@ -194,18 +129,68 @@ class NaiveQuestion(Vertex, Edge):
         return hessian
         # print()
     
+    def getcost(self , vector):
+
+        total_cost = 0
+        vector =  vector.reshape(1 , -1)
+
+        control_base = self.state_shape * self.horizon
+        dual_base = (self.state_shape + self.control_shape) * self.horizon
+
+        k =0
+        print(vector[0 + k * self.state_shape : 0 + (k+1) * self.state_shape].shape)
+        print(self.x_final.shape)
+        
+        for k in range(self.horizon):
+            # print("k = " , k)
+            total_cost += (vector[:, 0 + k * self.state_shape : 0 + (k+1) * self.state_shape] - self.x_final) @ self.Q @ (vector[: , 0 + k * self.state_shape : 0 + (k+1) * self.state_shape] - self.x_final).t() + \
+            vector[: , control_base + k * self.control_shape : control_base + (k+1) * self.control_shape] @ self.R @ vector[: , control_base + k * self.control_shape : control_base + (k+1) * self.control_shape].t()
+
+            if k != 0:
+
+                total_cost += vector[: , dual_base + k * self.state_shape : dual_base + (k+1) * self.state_shape] @ \
+                (vector[:, dual_base + (k)* self.state_shape : dual_base + (k+1) * self.state_shape].t()
+                - \
+                self.A @ vector[: , dual_base + (k - 1)* self.state_shape : dual_base + (k) * self.state_shape].t() - self.B @ vector[: , dual_base + (k)* self.control_shape : dual_base + (k+1) * self.control_shape].t())
+            i = 0
+
+            a = vector[: , dual_base + i * self.state_shape : dual_base + (i+1) * self.state_shape]
+            b = vector[:, dual_base + (i)* self.state_shape : dual_base + (i+1) * self.state_shape].t()
+            c =  self.A @ self.x_initial.t()
+            d = self.B @ vector[: , control_base + (i)* self.control_shape : control_base + (i+1) * self.control_shape].t()
+
+            # print("a = " , a.shape)
+            # print("b = " , b.shape)
+            # print("c = " , c.shape)
+            # print("d = " , d.shape)
+
+
+            total_cost += a @ (b - c - d)
+        
+        total_cost = total_cost * 2
+   
+        # self.total_cost = total_cost
+        return total_cost
+  
 
     def getGradient(self , horizon , vector):
 
-        totalShape = horizon * self.state_shape + horizon * self.control_shape + horizon * self.state_shape
+        # self.testParameter()
+        # print("horizon = " , self.horizon)
+        # print("self.B = " , self.B)
+        # print("vector = " , vector)
+        
+        # print("")
 
+        totalShape = horizon * self.state_shape + horizon * self.control_shape + horizon * self.state_shape
 
         gradient = torch.zeros((totalShape  , 1), device='cuda' , dtype=torch.float64)
 
         dual_base = self.state_shape * horizon + self.control_shape * horizon
 
-        # print("Q = " , self.Q)
+        # print("Q = " , self.Q)``
         # print("self.x_final = " , self.x_final)
+        # print("vecotr shape = " , vector.shape)
 
         for i in range(horizon):
             # print()
@@ -277,68 +262,101 @@ class NaiveQuestion(Vertex, Edge):
             
 
     def testParameter(self):
+
+        self.x_final = torch.tensor([[2, 2 , 2]], device='cuda' , dtype=torch.float64)
+        self.horizon = 2
         self.B = torch.tensor([[ -1, 0], 
                                [ - 1 , 0],
                                [0 , -1]] , device='cuda' , dtype=torch.float64)
-        vector = torch.tensor([[1,1 , 1 , 2 , 2 , 2 , 3 ,3 , 4 , 4 , 5 , 5 , 5 , 6 , 6 , 6]] , device = 'cuda' , dtype = torch.float64).t()
-        self.horizon = 2
-            
+        totalShape = self.state_shape * self.horizon + self.control_shape * self.horizon + self.state_shape * self.horizon
+
+        # vector = torch.ones((totalShape  , 1), device='cuda' , dtype=torch.float64)
+
+        states = [torch.full((1 ,self.state_shape), i + 1 ,  dtype = torch.float64 , device='cuda',  requires_grad=True) for i in range(self.horizon)]
+
+        controls = [torch.full( (1 ,self.control_shape), i + 1 + self.horizon,  dtype = torch.float64 , device='cuda' , requires_grad=True) for i in range(self.horizon)]
+        # self.check_shapes(self.controls)
+
+        # self.lambda_ = [lambda_temp for _ in range(self.horizon)]
+        lambda_ = [torch.full( (1 ,self.state_shape), i + 1 + self.horizon * 2,  dtype = torch.float64 ,device='cuda',  requires_grad=True) for i in range(self.horizon)]
+
+        # Flatten each tensor and concatenate them
+        states_flattened = torch.cat([state.view(-1) for state in states])
+        controls_flattened = torch.cat([control.view(-1) for control in controls])
+        lambda_flattened = torch.cat([lam.view(-1) for lam in lambda_])
+
+        # Concatenate all the flattened tensors into a single big vector
+        vector = torch.cat([states_flattened, controls_flattened, lambda_flattened])
+        vector = vector.reshape(totalShape , 1)
+      
+
         return vector
 
     def Leverberg(self):
-        # lambda_ = torch.tensor([[0.5, 0.5, 0.5]], device='cuda' , dtype=torch.float64)
-        # loss = 10
+      
+        self.x_initial = torch.tensor([[0.0, 0.0 , 0.0]], device='cuda' , dtype=torch.float64)
+        self.x_final  = torch.tensor([[1.5, 1.5 , 0.0]], device='cuda' , dtype=torch.float64)
 
-        self.horizon = 2
+        self.Q =  torch.tensor([[1.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 0.1]] , device = 'cuda' , dtype = torch.float64)
+        self.R = torch.tensor([[0.5, 0.0], [0.0, 0.05]] , device= 'cuda' ,dtype = torch.float64)
 
-        self.B = torch.tensor([[ torch.cos(self.x_initial[0][2]), 0], 
+
+        self.horizon = 3
+        self.T = 0.2
+        self.B = torch.tensor([[torch.cos(self.x_initial[0][2]), 0], 
                                [torch.sin(self.x_initial[0][2]) , 0],
                                [0 , 1]] , device='cuda' , dtype=torch.float64)
-        
         self.B = self.B * self.T
         totalShape = 3 * self.horizon + 2 * self.horizon + 3 * self.horizon
-        vector = torch.ones((totalShape  , 1), device='cuda' , dtype=torch.float64)
+        vector = torch.zeros((totalShape  , 1), device='cuda' , dtype=torch.float64)
 
-        # vector = self.testParameter()
+        #### you can change parameter here
+        vector = self.testParameter()
+        #### 
+
         # print("horizon = " , self.horizon)
         # print("self.B = " , self.B)
-        # print("vector = " , vector.shape)
+        # print("vector = " , vector)
+        # return
 
         # self.horizon = 2
 
-        gradient = torch.zeros((totalShape  , 1), device='cuda' , dtype=torch.float64)
         hessian = self.getHessian(self.horizon)
         # print("hessian = " , hessian)
-
-       
-        # print("vctor.shape = " , vector.shape)
-      
-        # print("asdfasdf = " , vector.shape)
+        # return
 
         xx = []
         xx.append(self.x_initial)
         uu = []
 
 
-        for i in range(20):
+        for _ in range(1):
         
-            while 1:
+            for _ in range(1):
+            # while 1:
                 # print("vector = " , vector)
-
+                # print("vector = " , vector)
                 gradient = self.getGradient(self.horizon , vector) 
                 loss = torch.norm(hessian.inverse() @ gradient)
-                # print("loss  = "  , loss)
-
                 vector = vector - hessian.inverse() @ gradient
+                # vector -= 0.0001 * gradient
+
+                gradient = self.getGradient(self.horizon , vector) 
+                loss = torch.norm(gradient)
+                total_cost = self.getcost(vector)
+                vector = vector - 0.001 * gradient * total_cost
+
+                # print("vector = " , vector.reshape(1 , -1))
+
+                # print("gradient = " , gradient.reshape(1 , -1))
                 # print("vector  = " , vector)
 
-
-                if loss < 1e-5:
+                if loss < 1e-8:
                     # print("i = " , i)
                     print("final_vector  = " , vector)
                     break
 
-            # exit()
+            exit()
 
             CurrentState , CurrentControl , vector = self.shift(vector)
 
@@ -353,7 +371,8 @@ class NaiveQuestion(Vertex, Edge):
             uu.append(CurrentControl)
             # exit()
 
-        print("xx = " , xx)
+        # print("xx = " , xx)
+        # print("x_final = " , self.x_final)
         return xx
 
         # for k in range(5):
@@ -432,54 +451,6 @@ class NaiveQuestion(Vertex, Edge):
             # print("lambda_ = " , lambda_)
 
 
-
-
-    
-
-
-    def SolveMultiShooting(self , learning_rate):
-
-        epoch = 0
-
-        inequaltity_dual_upper = torch.zeros(1, self.state_shape, device='cuda') * self.horizon
-        inequaltity_dual_lower = torch.zeros(1, self.state_shape, device='cuda') * self.horizon
-
-        equaltity_dual_state = torch.zeros(1 ,self.state_shape, device='cuda') * self.horizon
-        equaltity_dual_control = torch.zeros(1 ,self.control_shape, device='cuda') * self.horizon
-
-        # self.gradient_descent()
-       
-        
-        # print("self.B = " , self.B)
-        
-        self.B = self.B * self.T
-
-        # print("self.B change = " , self.B)
-       
-
-        # print("self.states[1] = " , self.states[1] )
-        # print("self.states[2] = " , self.states[2])
-        # print("self.controls[1]" , self.controls[1])
-
-        self.testLeverberg(1)
-
-        # print("self.states[1] = " , self.states[1] )
-        # print("self.states[2] = " , self.states[2])
-        # print("self.controls[1]" , self.controls[1])
-
-        # loss = 10
-        # while loss > 1e-1:
-        #     for i in range(10):
-        #         print()
-                
-
-
-        # while(torch.norm(self.x_initial - self.x_final) < 1e-12 and epoch < 10000):
-        #     for i in range(self.horizon):
-        #         self.states[i] = self.statess[i] - self.R @ self.states[i]
-
-    def test():
-        print()
 
 
 

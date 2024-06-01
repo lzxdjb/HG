@@ -33,13 +33,8 @@ class MyModel(nn.Module):
         self.states = [x_initial] + [torch.full((1 ,self.state_shape), i + 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
 
         self.controls = [torch.full( (1 ,self.control_shape), i + 1 + self.horizon,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
-        # self.check_shapes(self.controls)
-
-        # self.lambda_ = [lambda_temp for _ in range(self.horizon)]
+    
         self.lambda_ = [torch.full( (1 ,self.state_shape), i + 1 + self.horizon * 2,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
-     
-
-        # self.check_shapes(self.lambda_)
 
         self.x_initial = x_initial
         self.x_final = x_final
@@ -57,12 +52,11 @@ class MyModel(nn.Module):
         # print("self.B = " , self.B)      
         # print("self.Q = " , self.Q)
         # print("self.R = " , self.R)
-        
 
     def forward(self):
         # Example forward pass that uses the states and controls
         # self.check_shapes(self.time_grid)
-     
+        
         total_cost = 0
         
         for k in range(self.horizon):
@@ -71,12 +65,12 @@ class MyModel(nn.Module):
 
             total_cost += self.lambda_[k] @ (self.states[k + 1].t() - self.A @ self.states[k].t() - self.B @ self.controls[k].t())
         
-            
+            total_cost = total_cost ** 2
    
         self.total_cost = total_cost
         return total_cost
     
-    def train(self, learning_rate=0.0001):
+    def train(self):
         # self.total_cost = self.forward()
         # self.total_cost.backward()
         
@@ -99,7 +93,7 @@ class MyModel(nn.Module):
 
         loss_list = []
 
-        learning_rate = float(0.01)  # how to fix it
+        learning_rate = float(0.0000003)  # how to fix it
         # for i in range(0 , 2):
         loss_previous= 1e10
 
@@ -149,10 +143,10 @@ class MyModel(nn.Module):
 
                 loss_current = torch.norm(gradient)
 
-                print()
-                print("vector = " , vector.reshape(1 , -1)) 
+                # print()
+                # print("vector = " , vector.reshape(1 , -1)) 
                 print("loss = " , loss_current)
-                print("gradient = " , gradient.reshape(1 , -1)) 
+                # print("gradient = " , gradient.reshape(1 , -1)) 
 
                 loss_list.append(loss_current.item())
 
@@ -168,9 +162,11 @@ class MyModel(nn.Module):
                 # Clear the plot for the next iteration
                 plt.clf()
 
-                if loss_current > loss_previous:
+                if loss_current < 1e-6:
+                    print("vector = " , vector)
+                    print("self.state = " , self.states)
+                    print("self.controls = " , self.controls)
                     break
-                loss_previous = loss_current
 
                 # vector = vector.reshape(totalShape , 1)
                
@@ -196,14 +192,14 @@ R = torch.tensor(R, dtype=torch.float64)
 
 
 T = 0.2
-horizon = 1
+horizon = 2
 
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 x_final = torch.tensor([[2, 2 , 2]] , dtype=torch.float64 )
 
 
-learning_rate = 0.0001
+
 model = MyModel(A=A, B=B  , Q = Q , R = R, T = T , horizon = horizon , state_shape=state_size , control_shape=control_size)  
 
-model.train(learning_rate=0.0001)
+model.train()
 
