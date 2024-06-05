@@ -138,8 +138,8 @@ class NaiveQuestion(Vertex, Edge):
         dual_base = (self.state_shape + self.control_shape) * self.horizon
 
         k =0
-        print(vector[0 + k * self.state_shape : 0 + (k+1) * self.state_shape].shape)
-        print(self.x_final.shape)
+        # print(vector[0 + k * self.state_shape : 0 + (k+1) * self.state_shape].shape)
+        # print(self.x_final.shape)
         
         for k in range(self.horizon):
             # print("k = " , k)
@@ -301,7 +301,7 @@ class NaiveQuestion(Vertex, Edge):
         self.R = torch.tensor([[0.5, 0.0], [0.0, 0.05]] , device= 'cuda' ,dtype = torch.float64)
 
 
-        self.horizon = 3
+        self.horizon = 1
         self.T = 0.2
         self.B = torch.tensor([[torch.cos(self.x_initial[0][2]), 0], 
                                [torch.sin(self.x_initial[0][2]) , 0],
@@ -311,7 +311,7 @@ class NaiveQuestion(Vertex, Edge):
         vector = torch.zeros((totalShape  , 1), device='cuda' , dtype=torch.float64)
 
         #### you can change parameter here
-        vector = self.testParameter()
+        # vector = self.testParameter()
         #### 
 
         # print("horizon = " , self.horizon)
@@ -330,33 +330,32 @@ class NaiveQuestion(Vertex, Edge):
         uu = []
 
 
-        for _ in range(1):
+        for i in range(1000):
+            print("i = " , i)
         
-            for _ in range(1):
-            # while 1:
+            # for _ in range(1):
+            while 1:
                 # print("vector = " , vector)
                 # print("vector = " , vector)
                 gradient = self.getGradient(self.horizon , vector) 
                 loss = torch.norm(hessian.inverse() @ gradient)
                 vector = vector - hessian.inverse() @ gradient
+                # print("loss = " , loss)
                 # vector -= 0.0001 * gradient
 
-                gradient = self.getGradient(self.horizon , vector) 
-                loss = torch.norm(gradient)
-                total_cost = self.getcost(vector)
-                vector = vector - 0.001 * gradient * total_cost
+                # gradient = self.getGradient(self.horizon , vector) 
+                # loss = torch.norm(gradient)
+                # total_cost = self.getcost(vector)
+                # vector = vector - 0.001 * gradient 
 
-                # print("vector = " , vector.reshape(1 , -1))
-
-                # print("gradient = " , gradient.reshape(1 , -1))
-                # print("vector  = " , vector)
+            
 
                 if loss < 1e-8:
                     # print("i = " , i)
-                    print("final_vector  = " , vector)
+                    # print("final_vector  = " , vector)
                     break
 
-            exit()
+            # exit()
 
             CurrentState , CurrentControl , vector = self.shift(vector)
 
@@ -365,7 +364,7 @@ class NaiveQuestion(Vertex, Edge):
                                [torch.sin(self.x_initial[0][2]) , 0],
                                [0 , 1]] , device='cuda' , dtype=torch.float64)
             self.B = self.B * self.T
-            print("B = " , self.B)
+            # print("B = " , self.B)
 
             xx.append(CurrentState.reshape(1 , 3))
             uu.append(CurrentControl)

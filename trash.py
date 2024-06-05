@@ -21,7 +21,7 @@ class MPC(nn.Module):
         self.controls = nn.ParameterList([nn.Parameter(torch.full((1, control_shape), 1.0 + i + self.horizon)) for i in range(self.horizon)])
         self.lambda_ = nn.ParameterList([nn.Parameter(torch.full((1, state_shape), 1.0 + i + self.horizon * 2)) for i in range(self.horizon)])
 
-    def forward(self):
+    def forward1(self):
         total_cost = 0
         for k in range(self.horizon):
             states_k = self.x_initial if k == 0 else self.states[k - 1]
@@ -39,16 +39,50 @@ B = torch.tensor([[-1, 0], [-1, 0], [0, -1]], dtype=torch.float32)
 Q = torch.tensor(np.identity(state_size, dtype=np.float32))
 R = torch.tensor(np.identity(control_size, dtype=np.float32))
 
-model = MPC(A=A, B=B, Q=Q, R=R, T=0.2, horizon=100, state_shape=state_size, control_shape=control_size)
+model = MPC(A=A, B=B, Q=Q, R=R, T=0.2, horizon=1, state_shape=state_size, control_shape=control_size)
 optimizer = torch.optim.Adam(model.parameters())
 
 loss_list = []
 
-for i in range(100000):
+learning_rate = 0.001
+gradient = []
+
+print("model.states" , model.states)
+exit()
+for i in range(2):
+
+    print("before = " , model.states[1])
     optimizer.zero_grad()
-    total_cost: torch.Tensor = model()
+    print("after = " , model.states[1])
+
+    total_cost: torch.Tensor = model.forward1()
+    # print(("cost = " , total_cost))
+    # exit()
     total_cost.backward()
-    optimizer.step()
+    print("total_cost = " , total_cost)
+    for i in range(model.horizon):
+        model.states[i + 1] -= learning_rate * model.states[i + 1].grad
+        # loss += torch.norm(model.states[i + 1].grad)
+        temp = model.states[i + 1].grad.clone()
+        gradient.append(temp)
+        # print("temp1 = " , temp)
+        # print("model.states[i + 1] = " , model.states[i + 1]) 
+        model.states[i + 1].grad.zero_()
+        # print("temp2 = " , temp)
+
+    for i in range(model.horizon):
+        model.controls[i] -= learning_rate * model.controls[i ].grad
+        # loss += torch.norm(model.controls[i ].grad)
+        temp = model.controls[i].grad.clone()
+        gradient.append(temp)
+        model.controls[i].grad.zero_()       
+    for i in range(model.horizon):
+        model.lambda_[i] -= learning_rate * model.lambda_[i].grad
+        # loss += torch.norm( model.lambda_[i].grad)
+        temp = model.lambda_[i].grad.clone()     
+        gradient.append(model.lambda_[i].grad)
+        model.lambda_[i].grad.zero_()
+    # optimizer.step()
 
     with torch.no_grad():
         loss_list.append(total_cost.detach().cpu().item())
