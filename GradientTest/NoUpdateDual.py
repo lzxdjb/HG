@@ -46,16 +46,6 @@ class MyModel(nn.Module):
         # self.check_shapes(self.lambda_)
 ######
         
-        # print("state = " , self.states)
-        # print("control = " , self.controls)  
-        # # print("lambda = " , self.lambda_)  
-        # print("self.horizon = " , self.horizon)
-        # print("self.A = " , self.A )
-        # print("self.B = " , self.B)      
-        # print("self.Q = " , self.Q)
-        # print("self.R = " , self.R)
-        # print("x_final = " , self.x_final)
-        # return
     def check_shapes(self , states):
         for i, state in enumerate(states):
             print(f"Shape of state {i}: {state.shape}")
@@ -88,8 +78,8 @@ class MyModel(nn.Module):
     def ttttotal_cost(self):
         jj = 0.0
         for k in range(self.horizon):
-            jj += (self.states[k + 1] - self.x_final) @ self.Q @ (self.states[k + 1] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
-        jj += (self.states[0] - self.x_final) @ self.Q @ (self.states[0] - self.x_final).t()
+            jj += (self.states[k] - self.x_final) @ self.Q @ (self.states[k] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
+        # jj += (self.states[0] - self.x_final) @ self.Q @ (self.states[0] - self.x_final).t()
         
         return jj
 
@@ -135,13 +125,20 @@ class MyModel(nn.Module):
             varible.append(self.controls[i])
         
         total_cost = 0
+
+        temp = torch.zeros((self.state_shape , self.state_shape) , dtype=torch.float64)
                 
         for k in range(self.horizon):
-            total_cost += (self.states[k + 1] - self.x_final) @ self.Q @ (self.states[k + 1] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
+            total_cost += (self.states[k] - self.x_final) @ self.Q @ (self.states[k] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
+
+        total_cost += (self.states[self.horizon] - self.x_final) @ temp @(self.states[self.horizon] - self.x_final).t()
 
         grad_f = torch.autograd.grad(total_cost, varible, create_graph=True, allow_unused=True)
-        grad_f = torch.cat(grad_f , dim=1)
 
+    
+        grad_f = torch.cat(grad_f , dim=1)
+        # print("grad_f = " , grad_f)
+        # exit()
         hessian = []
 
         for g in grad_f[0]:
@@ -156,8 +153,9 @@ class MyModel(nn.Module):
         hessian_matrix = torch.squeeze(hessian_matrix , dim = 1)
 
         self.hessian = hessian_matrix
+     
 
-      
+        # print("hessian = " , hessian_matrix)
         return hessian_matrix
 
     def getGradient(self):
@@ -169,9 +167,12 @@ class MyModel(nn.Module):
             varible.append(self.controls[i])
         
         total_cost = 0
-                
+        temp = torch.zeros((self.state_shape , self.state_shape) , dtype=torch.float64)
+
         for k in range(self.horizon):
-            total_cost += (self.states[k + 1] - self.x_final) @ self.Q @ (self.states[k + 1] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
+            total_cost += (self.states[k] - self.x_final) @ self.Q @ (self.states[k] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
+
+        total_cost += (self.states[self.horizon] - self.x_final) @ temp @(self.states[self.horizon] - self.x_final).t()
 
         grad_f = torch.autograd.grad(total_cost, varible, create_graph=True, allow_unused=True)
         grad_f = torch.cat(grad_f , dim=1).t()
@@ -217,8 +218,8 @@ class MyModel(nn.Module):
             jj +=  learing_rate *temp[i * self.control_shape : (i + 1)* self.control_shape].unsqueeze(dim = 0)
             self.controls[i] = jj
         
-        temp = vector[dual_base: , 0]
-        self.lambda_ += learing_rate * temp.unsqueeze(dim = 1)
+        # temp = vector[dual_base: , 0]
+        # self.lambda_ += learing_rate * temp.unsqueeze(dim = 1)
 
     def getfinalmatrix(self):
             
@@ -237,12 +238,9 @@ class MyModel(nn.Module):
     
     def getfinalcolumn(self):
         g = self.getGradient()
-        e = self.getJB()
-        EV = e.t() @ self.lambda_
-
         h = self.getContrain()
 
-        final_column = torch.cat((g + EV , h) , dim = 0)
+        final_column = torch.cat((g , h) , dim = 0)
         # print("asdfasdf = " , final_column.shape)
         return  - final_column
     
@@ -304,26 +302,22 @@ class MyModel(nn.Module):
         totolsize = self.horizon * (self.state_shape  * 2 + self.control_shape)
 
     
-        learning_rate = float(0.5)
+        learning_rate = float(0.2)
 
         vector = torch.zeros((totolsize , 1) , dtype = torch.float64)
         
-        # vector = torch.tensor([[1 ,1 , 1 , 2 , 2 , 2 , 3 , 3 , 4 , 4 , 5 ,5, 5 , 6 , 6 , 6 ]] ,dtype=torch.float64).t()
-        # vector = self.quicktest().unsqueeze(dim = 1)
-
-        # exit()
 
         self.update(vector , learning_rate)
-        # self.bug()
-        # exit()
-   
-
-        # while 1:
+     
         for i in range(1):
 
             while 1:
              
                 A = self.getfinalmatrix()
+                djb = A.clone()
+                det = np.linalg.det(djb.detach())
+                print("invertible ? " , det != 0)
+
                 B = self.getfinalcolumn()
 
                 # print()
@@ -334,15 +328,14 @@ class MyModel(nn.Module):
                 self.update(vector ,learning_rate)
                 
 
-                loss_current = torch.norm(vector)
+                loss_current = torch.norm(vector[:self.horizon* (self.state_shape + self.control_shape) ,0])
                 cost = self.ttttotal_cost()
                 print("############")
                 print()
-                # self.bug()
+                self.bug()
                 # self.debug()
                 print("loss = " , loss_current)
-                print("cost = " ,cost )
-                self.JudgeFullRank(self.getJB())
+                # print("cost = " ,cost )
                 print()
                 print("############")
 

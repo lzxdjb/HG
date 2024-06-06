@@ -32,9 +32,8 @@ class MyModel(nn.Module):
         # self.check_shapes(self.controls)
 
         # self.lambda_ = [lambda_temp for _ in range(self.horizon)]
-        self.lambda_ = [torch.full( (1 ,self.state_shape), i + 1 + self.horizon * 2,  dtype = torch.float64 ) for i in range(self.horizon)]
-
-   
+        self.lambda_ = [torch.full( (1 ,self.state_shape), i + 1 + self.horizon * 2,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+     
 
         # self.check_shapes(self.lambda_)
 
@@ -61,32 +60,22 @@ class MyModel(nn.Module):
         # self.check_shapes(self.time_grid)
      
         total_cost = 0
-        # print("B = " , self.B)
+        print("B = " , self.B)
         
-        a = 0
-        b = 0
+        
         for k in range(self.horizon):
+            # print("self.states[k][2] = " , self.states)
+
+            # self.B = torch.tensor([torch.cos(self.states[k][0][2]) , 0] , [torch.sin(self.states[k][2]) , 0] , [0 , 1])
+            # print("k = " , k)
+            total_cost += (self.states[k + 1] - self.x_final) @ self.Q @ (self.states[k + 1] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
+
+            total_cost += self.lambda_[k] @ (self.states[k + 1].t() - self.A @ self.states[k].t() - self.B @ self.controls[k].t())
+        
             
-            total_cost += ((self.states[k + 1] - self.x_final) @ self.Q @ (self.states[k + 1] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()) ** 2
-
-            a += ((self.states[k + 1] - self.x_final) @ self.Q @ (self.states[k + 1] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()) ** 2
-
-            total_cost += self.lambda_[k] @ ((self.states[k + 1].t() - self.A @ self.states[k].t() - self.B @ self.controls[k].t()) ** 2)
-
-            b += ((self.states[k + 1].t() - self.A @ self.states[k].t() - self.B @ self.controls[k].t()) ** 2).sum()
-        
-        print("a = " , a )
-        print("b = " , b)
-
-        
-        return total_cost
-    
-    def UpdateDual(self):
-
-        for k in range(self.horizon):
-
-            self.lambda_[k] += (self.states[k + 1].t() - self.A @ self.states[k].t() - self.B @ self.controls[k].t()).t() ** 2
-        
+   
+        self.total_cost = total_cost ** 2
+        return total_cost ** 2
     
     def train(self):
      
@@ -94,14 +83,17 @@ class MyModel(nn.Module):
         loss_list = []
 
         # learning_rate = float(0.0006)  # how to fix it
-        learning_rate = float(0.0001)
+        learning_rate = float(0.02)
 
         while 1:
         # for i in range(1):
             self.total_cost = self.forward()
             self.total_cost.backward()
 
-    
+            # print("self.states[i + 1].grad = " ,  self.states[i + 1].grad)
+            # self.total_cost.grad.zero_()
+            # print("after = " , self.states[i + 1].grad)
+            # exit()
 
             with torch.no_grad():
                 gradient = []
@@ -126,16 +118,14 @@ class MyModel(nn.Module):
                     gradient.append(temp)
                     self.controls[i].grad.zero_()
 
-                # for i in range(self.horizon):
-                #     self.lambda_[i] -= learning_rate * self.lambda_[i].grad
-                #     # loss += torch.norm( self.lambda_[i].grad)
-                #     temp = self.lambda_[i].grad.clone()
+                for i in range(self.horizon):
+                    self.lambda_[i] -= learning_rate * self.lambda_[i].grad
+                    # loss += torch.norm( self.lambda_[i].grad)
+                    temp = self.lambda_[i].grad.clone()
 
-                #     gradient.append(self.lambda_[i].grad)
-                #     self.lambda_[i].grad.zero_()
-                    
-                
-                self.UpdateDual()
+                    gradient.append(self.lambda_[i].grad)
+                    self.lambda_[i].grad.zero_()
+
 
                 states_flattened = torch.cat([state.view(-1) for state in self.states[1:]])
                 controls_flattened = torch.cat([control.view(-1) for control in self.controls])
@@ -145,28 +135,28 @@ class MyModel(nn.Module):
                 vector = torch.cat([states_flattened, controls_flattened])
                 gradient = torch.cat([gg.view(-1) for gg in gradient])
 
+                loss_current = torch.norm(gradient)
 
-                # print()
-                # print("vector = " , vector.reshape(1 , -1)) 
-                # print("loss = " , self.forward())
-                # print("gradient = " , gradient.reshape(1 , -1)) 
+                print()
+                print("vector = " , vector.reshape(1 , -1)) 
+                print("loss = " , loss_current)
+                print("gradient = " , gradient.reshape(1 , -1)) 
 
-                # loss_list.append(self.forward().item())
+                loss_list.append(loss_current.item())
 
             
-                # plt.plot(loss_list, label='Loss')
-                # plt.xlabel('Iteration')
-                # plt.ylabel('Loss')
-                # plt.title('Loss over iterations')
-                # plt.legend()
-                # plt.grid(True)
-                # plt.pause(0.001)  # Add a pause to allow the plot to update
+                plt.plot(loss_list, label='Loss')
+                plt.xlabel('Iteration')
+                plt.ylabel('Loss')
+                plt.title('Loss over iterations')
+                plt.legend()
+                plt.grid(True)
+                plt.pause(0.001)  # Add a pause to allow the plot to update
 
-                # # Clear the plot for the next iteration
-                # plt.clf()
+                # Clear the plot for the next iteration
+                plt.clf()
 
-                # if self.forward() < 1e-8:
-                if False:
+                if loss_current < 1e-8:
                     print("################")
                     print("states = " , self.states)
                     print("control = " , self.controls)
