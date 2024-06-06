@@ -194,7 +194,7 @@ if __name__ == "__main__":
             print()
         print("states = " , states)
         print("objective_value_np = " , objective_value_np)
-        exit()
+        # exit()
 
         t0, x0, control , u0, next_states = shift_movement(T, t0, x0, u0, x_m, f)
         x0 = ca.reshape(x0, -1, 1)

@@ -2,23 +2,13 @@ import torch
 import numpy as np
 torch.autograd.set_detect_anomaly(True)
 
-class Problem:
-    def __init__(self, x_initial , x_final , StateShape , ControlShape ,  Q, R, A):
 
-        self.init = x_initial
-        self.final = x_final
+StateShape = 3
+ControlShape = 2
+x_initial = torch.tensor([[0.0, 0.0 , 0]], device='cuda' , dtype=torch.float64)
+x_final = torch.tensor([[1.5, 1.5 , 0]], device='cuda' , dtype=torch.float64)
 
-        self.StateShape = StateShape
-        self.controlShape =ControlShape
-
-        self.Q = Q
-        self.R = R
-        self.A = A
-
-        self.T = T
-        self.horizon = horizon
-
-class Vertex(Problem):
+class Vertex():
 
     def __init__(self, state):
         self.state = state
@@ -27,6 +17,8 @@ class Vertex(Problem):
 
         self.GradientEdge = []
         self.ConstrainEdge = []
+        self.StateShape = StateShape
+        self.ControlShape = ControlShape
 
     def add_gradientedge(self, edge):
         self.GradientEdge.append(edge)
@@ -53,12 +45,14 @@ class Vertex(Problem):
         # print("states.gradient = " , self.gradients)
         print("states.jacabian = " , self.jacobians)
 
-class GradientEdge(Problem):
+class GradientEdge():
     
     def __init__(self, state0, control):
 
         self.state0 = state0
         self.control = control
+        self.StateShape = StateShape
+        self.ControlShape = ControlShape
      
         if state0:
             state0.add_gradientedge(self)
@@ -70,8 +64,7 @@ class GradientEdge(Problem):
         if self.state0:
             state0 = self.state0.state
         else:
-            state0 = self.init
-
+            state0 = x_initial
         if self.control:
             return state0 @ self.Q @ state0.t() + self.control.state @ self.R @ self.control.state.t()
         else:
@@ -96,12 +89,14 @@ class GradientEdge(Problem):
         else:
             return self.central_difference(self.cost, self.control)
         
-class ConstrainEdge(Problem):
+class ConstrainEdge():
 
-    def __init__(self , state0, state1, control):
+    def __init__(self , state0, state1, control ):
         self.state0 = state0
         self.state1 = state1
         self.control = control
+        self.StateShape = StateShape
+        self.ControlShape = ControlShape
 
         if state0:
             state0.add_constrainedge(self)
@@ -114,7 +109,7 @@ class ConstrainEdge(Problem):
         if self.state0:
             state0 = self.state0.state
         else:
-            state0 = self.init
+            state0 = x_initial
         if self.state1:
             state1 = self.state1.state
         else:
@@ -134,6 +129,8 @@ class ConstrainEdge(Problem):
 
     def central_difference(self, func, var ,epsilon=1e-5):
 
+        print("var = " , var.shape)
+
         jacobian = torch.zeros((self.StateShape , var.size(1)) , device='cuda' , dtype = torch.float64)
 
         grad = torch.zeros_like(var , device='cuda' , dtype = torch.float64)
@@ -141,9 +138,9 @@ class ConstrainEdge(Problem):
         for k in range(self.StateShape):
             for i in range(var.size(1)):
                 var[0][i] += epsilon
-                f_plus = func()
+                f_plus = func(i)
                 var[0][i] -= 2 * epsilon
-                f_minus = func()
+                f_minus = func(i)
                 grad[0][i] = (f_plus - f_minus) / (2 *  epsilon)
                 var[i] += epsilon
             jacobian[k , : ] = grad
@@ -155,10 +152,17 @@ class ConstrainEdge(Problem):
 
 
 
-class NewtonMethod(Problem):
+class NewtonMethod():
 
     def __init__(self, x_initial, x_final, StateShape, ControlShape, Q, R, A):
-        super().__init__(x_initial, x_final, StateShape, ControlShape, Q, R, A)
+        
+        self.init = x_initial
+        self.final = x_finaStateShape = StateShape
+        self.controlShape =ControlShapQ = Q
+        self.R = R
+        self.A = A
+        self.T = T
+        self.horizon = horizon
 
 
     def debug_output(self):
@@ -208,8 +212,8 @@ class NewtonMethod(Problem):
 
     def setup_problem(self, x_initial, x_final , upper_state_constrain = None , lower_state_constrain = None ,upper_control_constrain = None , lower_control_constrain = None):
 
-        tempState = torch.tensor([0,0,0],device = 'cuda' , dtype = torch.float64)
-        tempControl = torch.tensor([0,0],device = 'cuda' , dtype = torch.float64)
+        tempState = torch.tensor([[0,0,0]],device = 'cuda' , dtype = torch.float64)
+        tempControl = torch.tensor([[0,0]],device = 'cuda' , dtype = torch.float64)
 
         self.States = []
         self.Controls = []
@@ -247,11 +251,6 @@ class NewtonMethod(Problem):
             controls(f"controls {idx }: " ,states.debug())
     
         
-        
-        
-
-
-
 
 state_size = 3
 control_size = 2
@@ -259,9 +258,7 @@ control_size = 2
 A = np.identity(state_size)
 B = np.zeros((state_size, control_size))
 
-Q = np.identity(state_size) #
-Q  = Q * 1
-# Q[2 , 2] = 100
+Q = np.identity(state_size) 
 
 R = np.identity(control_size) # 
 
@@ -280,8 +277,7 @@ R = R.cuda()
 T = 0.1
 horizon = 2
 
-x_initial = torch.tensor([[0.0, 0.0 , 0]], device='cuda' , dtype=torch.float64)
-x_final = torch.tensor([[2, 2 , np.pi / 3]], device='cuda' , dtype=torch.float64)
+
 
 nn = NewtonMethod( A , Q , R , T , horizon , state_size , control_size)
 nn.setup_problem(x_initial ,x_final)

@@ -42,6 +42,14 @@ class MyModel(nn.Module):
         self.controlUpper = cu
         self.controlLower = cl
 
+        self.radium = 0.3
+
+        obs1 = torch.tensor([[0.1 , 0.1 , 0.3]] , dtype = torch.float64)
+
+        self.obs = [obs1]
+        self.ClosestObs = []
+
+        self.LowerTolerace = 0.3
 
 ####### test
         # self.states = [x_initial] + [torch.full((1 ,self.state_shape), i + 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
@@ -95,6 +103,21 @@ class MyModel(nn.Module):
         print("self.constrain_h = " , self.constrain_h)
 
         print("self.inequlity = " , self.barrier_function())
+
+    def calculate_distance(self, state, obstacle):
+        # Calculate Euclidean distance between state and obstacle position (ignoring the radius)
+        # print(torch.norm(state[: , :2] - obstacle[ : , :2]))
+        return torch.norm(state[: , :2] - obstacle[ : , :2])
+
+    def find_closest_obstacles(self):
+        closest_obstacles_indices = []
+        for state in self.states[1:]:
+            distances = torch.tensor([self.calculate_distance(state, obs) for obs in self.obs], dtype=torch.float64)
+            closest_obstacle_index = torch.argmin(distances).item()
+            closest_obstacles_indices.append(closest_obstacle_index)
+
+        self.ClosestObs = closest_obstacles_indices
+        return closest_obstacles_indices
 
     def ttttotal_cost(self):
         jj = 0.0
@@ -225,7 +248,7 @@ class MyModel(nn.Module):
     # Define the inequality constraints h_i(x)
         h_constraints = []
         i = 0
-        for state in self.states[1:]:
+        for index , state in enumerate(self.states[1:]):
             # print("i = " , i)
             i += 1
             h_constraints.append(state[0][0] - self.stateUpper[0])  
@@ -250,6 +273,11 @@ class MyModel(nn.Module):
             # print("i = " , i)
             i += 1
             h_constraints.append(self.stateLower[2] - state[0][2])
+
+            distance = self.calculate_distance(state , self.obs[self.ClosestObs[index]])
+            min_distance = self.obs[self.ClosestObs[index]][0][2] + self.radium
+
+            h_constraints.append(min_distance + self.LowerTolerace - distance)  
 
         # print("######")  
 
@@ -296,7 +324,7 @@ class MyModel(nn.Module):
         grad_f = torch.cat(grad_f, dim=1)
 
         self.InEqualityGradint = grad_f
-        # print("frad_f = " , grad_f.shape)
+        # print("frad_f = " , grad_f)
         # exit()
         hessian = []
 
@@ -379,33 +407,6 @@ class MyModel(nn.Module):
         print(self.controls)
         # print(self.lambda_)
 
-    def quicktest(self):
-        x_m = np.array([
-            [ 1.88412886e-01, 4.56426036e-01, 4.56426036e-01],
-            [ 1.88079096e-37, 3.17207287e-01, 3.17207287e-01],
-            [ 8.69261870e-01, 8.04872102e-01, 8.04872102e-01]
-        ])
-
-        u0 = np.array([
-            [9.42064431e-01, 2.07636407e+00, -1.72721296e-38],
-            [4.34630935e+00, -3.21948841e-01, 0.00000000e+00]
-        ])
-
-        x_m_tensor = torch.tensor(x_m, dtype=torch.float64)
-        u0_tensor = torch.tensor(u0, dtype=torch.float64)
-        x_m_flat = x_m_tensor.flatten()
-        u0_flat = u0_tensor.flatten()
-
-        vector = torch.cat((x_m_flat, u0_flat))
-
-        num_zeros_to_add = self.horizon * self.state_shape
-        zeros_tensor = torch.zeros(num_zeros_to_add, dtype=torch.float64)
-
-        vector = torch.cat((vector, zeros_tensor))
-
-        print(vector.shape)
-        return vector
-
     def JudgeFullRank(self ,matrix):
 
         rank = np.linalg.matrix_rank(matrix.detach().numpy())
@@ -449,23 +450,26 @@ class MyModel(nn.Module):
 
         self.update(vector , learning_rate)
         alpha = 5
-     
+
+        self.find_closest_obstacles()
         # for i in range(5):
         while 1:
 
             while 1:
             # for i in range(5):
-             
+                # print("1")
                 A = self.getfinalmatrix(alpha)
                 # djb = A.clone()
                 # det = np.linalg.det(djb.detach())
                 # print("invertible ? " , det != 0)
+                # print("2")
 
                 B = self.getfinalcolumn(alpha)
 
                 # print()
                 # self.debug()
                 # print()
+                print("3")
 
                 vector = A @ B
                 self.update(vector ,learning_rate)
@@ -484,15 +488,6 @@ class MyModel(nn.Module):
                 print()
                 print("############")
 
-                # loss_list.append(loss_current.item())
-                # plt.plot(loss_list, label='Loss')
-                # plt.xlabel('Iteration')
-                # plt.ylabel('Loss')
-                # plt.title('Loss over iterations')
-                # plt.legend()
-                # plt.grid(True)
-                # plt.pause(0.01)  # Add a pause to allow the plot to update
-                # plt.clf()
 
                 loss_list.append(loss_current.item())
                 plt.plot(loss_list, label='Loss')
@@ -518,30 +513,6 @@ class MyModel(nn.Module):
                 print("alpha = " , alpha)
                 break
                 
-                
-
-               
-#### for debug
-# state_size = 3
-# control_size = 2
-# A = np.identity(state_size)
-# B = torch.tensor([[1 , 0 ], 
-#              [ 1, 0] , 
-#              [0 , 1]])
-# Q = np.identity(state_size) # 
-# R = np.identity(control_size) # 
-# # Convert the NumPy arrays to PyTorch tensors
-# A = torch.tensor(A, dtype=torch.float64)
-# B = torch.tensor(B, dtype=torch.float64)
-# Q = torch.tensor(Q, dtype=torch.float64)
-# R = torch.tensor(R, dtype=torch.float64)
-# T = 0.2
-# horizon = 3
-# x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
-# x_final = torch.tensor([[2, 2 , 2]] , dtype=torch.float64 )
-# learning_rate = 0.0001
-# model = MyModel(A=A, B=B  , Q = Q , R = R, T = T , horizon = horizon , state_shape=state_size , control_shape=control_size)  
-#####
                 
 state_size = 3
 control_size = 2
@@ -573,13 +544,7 @@ R = torch.tensor(R, dtype=torch.float64)
 
 model = MyModel(A=None, B=None  , Q = Q , R = R, T = T , horizon = horizon , state_shape=state_size , control_shape=control_size) 
 
+# model.find_closest_obstacles()
+# model.barrier_function()
 # model.getBarrierHessianAndGradient()
-# for i in range(2):
-# model.getJB()
-# model.getGradient()
-# model.getContrain()
-# model.getHessian()
-# model.debug()
-# exit()
-# model.debugbarrier()
 model.train()
