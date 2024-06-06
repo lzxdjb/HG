@@ -26,6 +26,23 @@ class MyModel(nn.Module):
         self.x_final = x_final
 
 
+        state1 = 2
+        state2 = 2
+        state3 = torch.inf
+        control1 = 0.6
+        control2 = torch.pi / 4.0
+
+        su = [state1 , state2 , state3]
+        sl = [-state1 , -state2 , -state3]
+        cu = [control1 , control2]
+        cl = [-control1 , -control2]
+
+        self.stateUpper = su
+        self.stateLower = sl
+        self.controlUpper = cu
+        self.controlLower = cl
+
+
 ####### test
         # self.states = [x_initial] + [torch.full((1 ,self.state_shape), i + 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
 
@@ -49,6 +66,7 @@ class MyModel(nn.Module):
     def check_shapes(self , states):
         for i, state in enumerate(states):
             print(f"Shape of state {i}: {state.shape}")
+
     def bug(self ):
         for i, state in enumerate(self.states):
             print(f"Shape of state {i}: {state}")
@@ -56,24 +74,27 @@ class MyModel(nn.Module):
         for i, state in enumerate(self.controls):
             print(f"Shape of control {i}: {state}")
 
-       
-        print(f"lamda_ : {self.lambda_}")
-
     def debug(self):
-        print("jacobian = " , self.jacobian.shape)
-        print("jacobian = " , self.jacobian)
-        print()
+        # print("jacobian = " , self.jacobian.shape)
+        # print("jacobian = " , self.jacobian)
+        # print()
 
-        print("hessian  = " , self.hessian.shape)
-        print("hessian = " , self.hessian)
-        print()
+        # print("hessian  = " , self.hessian.shape)
+        # print("hessian = " , self.hessian)
+        # print()
 
-        print("gradient = " , self.gradient.shape)
-        print("gradient = " , self.gradient)
-        print()
+        # print("gradient = " , self.gradient.shape)
+        # print("gradient = " , self.gradient)
+        # print()
 
-        print("self.constrain_h = " , self.constrain_h.shape)
+        # print("self.constrain_h = " , self.constrain_h.shape)
+        # print("self.constrain_h = " , self.constrain_h)
+
+
+        # print("self.constrain_h = " , self.constrain_h.shape)
         print("self.constrain_h = " , self.constrain_h)
+
+        print("self.inequlity = " , self.barrier_function())
 
     def ttttotal_cost(self):
         jj = 0.0
@@ -200,6 +221,98 @@ class MyModel(nn.Module):
         # print(big_tensor.shape)
         return big_tensor
 
+    def barrier_function(self):
+    # Define the inequality constraints h_i(x)
+        h_constraints = []
+        i = 0
+        for state in self.states:
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(state[0][0] - self.stateUpper[0])  
+
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(self.stateLower[0] - state[0][0]) 
+
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(state[0][1] - self.stateUpper[1])  
+
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(self.stateLower[1] - state[0][1])  
+
+            # print("i = " , i)
+            i += 1
+            # print("@@@@@@@@@@" , state[0][2] ,self.stateUpper[2])
+            h_constraints.append(state[0][2] - self.stateUpper[2])  
+
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(self.stateLower[2] - state[0][2])
+
+        # print("######")  
+
+        for control in self.controls:
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(control[0][0] - self.controlUpper[0]) 
+
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(self.controlLower[0] - control[0][0]) 
+
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(control[0][1] - self.controlUpper[1]) 
+
+            # print("i = " , i)
+            i += 1
+            h_constraints.append(self.controlLower[1] - control[0][1])  
+            # print("^^^^^^^^^^")
+
+        # Compute the barrier function phi(x)
+        barrier = 0
+        for index , h in enumerate(h_constraints):
+            
+            barrier -= torch.log(-h)
+            # print("index = " , index ," h = " , h ,  "value = " , torch.log(-h))
+        return barrier
+    
+    
+    def getBarrierHessianAndGradient(self):
+
+        variables = []
+        for i in range(self.horizon):
+            variables.append(self.states[i + 1])
+        for i in range(self.horizon):
+            variables.append(self.controls[i])
+
+
+        # Compute the barrier function
+        self.barrier = self.barrier_function()
+        
+        grad_f = torch.autograd.grad(self.barrier, variables,create_graph=True,   allow_unused=True)
+        grad_f = torch.cat(grad_f, dim=1)
+
+        self.InEqualityGradint = grad_f
+        # print("frad_f = " , grad_f.shape)
+        # exit()
+        hessian = []
+
+        for g in grad_f[0]:
+            grad2 = torch.autograd.grad(g,  variables, retain_graph=True,    allow_unused=True)
+            grad2 = [g2 if g2 is not None else  torch.zeros_like(v) for g2, v in zip (grad2, variables)]
+            hessian.append(torch.cat(grad2, dim=1))
+
+        hessian_matrix = torch.stack(hessian)
+        hessian_matrix = torch.squeeze  (hessian_matrix, dim=1)
+
+        self.InEqualityHessian = hessian_matrix
+     
+        # exit()
+        return grad_f.t() , hessian_matrix 
+
     def update(self , vector , learing_rate):
 
         control_base = self.horizon * self.state_shape
@@ -221,10 +334,14 @@ class MyModel(nn.Module):
         # temp = vector[dual_base: , 0]
         # self.lambda_ += learing_rate * temp.unsqueeze(dim = 1)
 
-    def getfinalmatrix(self):
+    def getfinalmatrix(self , alpha):
             
-        hessian = self.getHessian()
+        hessian = self.getHessian() * alpha
+        _ , inequaltiyHessian = self.getBarrierHessianAndGradient()
+        hessian += inequaltiyHessian
+
         Jacobian = self.getJB()
+
         JT = Jacobian.t()
         zero_block = torch.zeros(Jacobian.size(0), Jacobian.size(0) ,dtype=torch.float64)
 
@@ -236,8 +353,12 @@ class MyModel(nn.Module):
             
         return final_matrix.inverse()
     
-    def getfinalcolumn(self):
-        g = self.getGradient()
+    def getfinalcolumn(self , alpha):
+
+        g = self.getGradient() * alpha
+        inequalityQ , _ = self.getBarrierHessianAndGradient()
+        g = g + inequalityQ
+
         h = self.getContrain()
 
         final_column = torch.cat((g , h) , dim = 0)
@@ -256,7 +377,7 @@ class MyModel(nn.Module):
         
         print(self.states)
         print(self.controls)
-        print(self.lambda_)
+        # print(self.lambda_)
 
     def quicktest(self):
         x_m = np.array([
@@ -294,6 +415,25 @@ class MyModel(nn.Module):
         print(f"Number of rows: {num_rows}")
         print(f"Is the Jacobian matrix full row rank? {'Yes' if is_full_row_rank else 'No'}")
 
+    def outputResult(self):
+        print("################")
+        states = [tensor.detach().numpy() for tensor in self.states]
+        controls = [tensor.detach().numpy() for tensor in self.controls]
+        lambda_ = [tensor.detach().numpy() for tensor in self.lambda_]
+
+        states = np.concatenate([state for state in states], axis=0)
+        controls = np.concatenate([ctrl for ctrl in controls], axis=0)
+        lambda_ = np.concatenate([lam for lam in lambda_], axis=0)
+
+        print("states = " , states.T)
+        print("control = " ,controls.T)
+        # print("lambda = " , lambda_.T)
+        jb = self.ttttotal_cost()
+
+        print("cost = " ,jb )
+
+        #################
+
 
     
     def train(self):
@@ -302,23 +442,26 @@ class MyModel(nn.Module):
         totolsize = self.horizon * (self.state_shape  * 2 + self.control_shape)
 
     
-        learning_rate = float(0.2)
+        learning_rate = float(0.6)
 
         vector = torch.zeros((totolsize , 1) , dtype = torch.float64)
         
 
         self.update(vector , learning_rate)
+        alpha = 5
      
-        for i in range(1):
+        # for i in range(5):
+        while 1:
 
             while 1:
+            # for i in range(5):
              
-                A = self.getfinalmatrix()
-                djb = A.clone()
-                det = np.linalg.det(djb.detach())
-                print("invertible ? " , det != 0)
+                A = self.getfinalmatrix(alpha)
+                # djb = A.clone()
+                # det = np.linalg.det(djb.detach())
+                # print("invertible ? " , det != 0)
 
-                B = self.getfinalcolumn()
+                B = self.getfinalcolumn(alpha)
 
                 # print()
                 # self.debug()
@@ -329,13 +472,15 @@ class MyModel(nn.Module):
                 
 
                 loss_current = torch.norm(vector[:self.horizon* (self.state_shape + self.control_shape) ,0])
-                cost = self.ttttotal_cost()
+                # cost = self.ttttotal_cost()
+
                 print("############")
                 print()
                 self.bug()
-                # self.debug()
+                self.debug()
                 print("loss = " , loss_current)
                 # print("cost = " ,cost )
+                print("dual_gap = " , (self.state_shape + self.control_shape) * self.horizon / alpha)
                 print()
                 print("############")
 
@@ -349,7 +494,7 @@ class MyModel(nn.Module):
                 # plt.pause(0.01)  # Add a pause to allow the plot to update
                 # plt.clf()
 
-                loss_list.append(cost.item())
+                loss_list.append(loss_current.item())
                 plt.plot(loss_list, label='Loss')
                 plt.xlabel('Iteration')
                 plt.ylabel('Loss')
@@ -359,29 +504,23 @@ class MyModel(nn.Module):
                 plt.pause(0.01)  # Add a pause to allow the plot to update
                 plt.clf()
 
+
                 if loss_current < 1e-8:
-                    print("################")
-                    states = [tensor.detach().numpy() for tensor in self.states]
-                    controls = [tensor.detach().numpy() for tensor in self.controls]
-                    lambda_ = [tensor.detach().numpy() for tensor in self.lambda_]
 
-                    states = np.concatenate([state for state in states], axis=0)
-                    controls = np.concatenate([ctrl for ctrl in controls], axis=0)
-                    lambda_ = np.concatenate([lam for lam in lambda_], axis=0)
-
-                    print("states = " , states.T)
-                    print("control = " ,controls.T)
-                    print("lambda = " , lambda_.T)
-                    jb = self.ttttotal_cost()
-
-                    print("loss = " ,jb )
-
+                    self.outputResult()
+                    alpha = alpha * 2
                     break
+
+            if (self.state_shape + self.control_shape) * self.horizon / alpha < 1e-9:
+                    # 
+                print("$$$$$$$$$")
+                self.outputResult()
+                print("alpha = " , alpha)
+                break
+                
                 
 
                
-
-    
 #### for debug
 # state_size = 3
 # control_size = 2
@@ -421,9 +560,20 @@ R = np.array([[0.5, 0.0], [0.0, 0.05]])
 Q = torch.tensor(Q, dtype=torch.float64)
 R = torch.tensor(R, dtype=torch.float64)
 
+# state1 = 2
+# state2 = 2
+# state3 = 1e20
+# control1 = 0.6
+# control2 = torch.pi / 4
+
+# stateUpper = [state1 , state2 , state3]
+# stateLower = [-state1 , -state2 , -state3]
+# controlUpper = [control1 , control2]
+# controlLower = [-control1 , -control2]
 
 model = MyModel(A=None, B=None  , Q = Q , R = R, T = T , horizon = horizon , state_shape=state_size , control_shape=control_size) 
 
+# model.getBarrierHessianAndGradient()
 # for i in range(2):
 # model.getJB()
 # model.getGradient()
@@ -431,4 +581,5 @@ model = MyModel(A=None, B=None  , Q = Q , R = R, T = T , horizon = horizon , sta
 # model.getHessian()
 # model.debug()
 # exit()
+# model.debugbarrier()
 model.train()
