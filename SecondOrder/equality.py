@@ -27,23 +27,22 @@ class MyModel(nn.Module):
 
 
 ####### test
-        # self.states = [x_initial] + [torch.full((1 ,self.state_shape), i + 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        self.states = [x_initial] + [torch.full((1 ,self.state_shape), 1,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
 
-        # self.controls = [torch.full( (1 ,self.control_shape), i + 1 + self.horizon,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        self.controls = [torch.full( (1 ,self.control_shape), 1,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
 
-        # self.lambda_ = torch.zeros((self.horizon * self.state_shape , 1) , dtype = torch.float64)
+
 ######
         
 ###### real number:
 
-        self.states = [x_initial] + [torch.full((1 ,self.state_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
-        # self.check_shapes(self.states)
+        # self.states = [x_initial] + [torch.full((1 ,self.state_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        # # self.check_shapes(self.states)
 
-        self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
-        # self.check_shapes(self.controls)
+        # self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        # # self.check_shapes(self.controls)
 
-        self.lambda_ = torch.zeros((self.horizon * self.state_shape , 1) , dtype = torch.float64)
-        # self.check_shapes(self.lambda_)
+        # self.lambda_ = torch.zeros((self.horizon * self.state_shape , 1) , dtype = torch.float64)
 ######
         
     def check_shapes(self , states):
@@ -57,7 +56,7 @@ class MyModel(nn.Module):
             print(f"Shape of control {i}: {state}")
 
        
-        print(f"lamda_ : {self.lambda_}")
+        # print(f"lamda_ : {self.lambda_}")
 
     def debug(self):
         print("jacobian = " , self.jacobian.shape)
@@ -113,6 +112,8 @@ class MyModel(nn.Module):
         jacobian_matrix = torch.stack(jacobian)
 
         self.jacobian = jacobian_matrix
+
+        print(jacobian_matrix)
     
         return jacobian_matrix
     
@@ -179,6 +180,7 @@ class MyModel(nn.Module):
 
         self.gradient = grad_f
 
+        print("gradient = " , self.gradient)
         return grad_f
 
     def getContrain(self):
@@ -197,7 +199,7 @@ class MyModel(nn.Module):
 
         self.constrain_h = big_tensor
 
-        # print(big_tensor.shape)
+        print(big_tensor)
         return big_tensor
 
     def update(self , vector , learing_rate):
@@ -363,15 +365,15 @@ class MyModel(nn.Module):
                     print("################")
                     states = [tensor.detach().numpy() for tensor in self.states]
                     controls = [tensor.detach().numpy() for tensor in self.controls]
-                    lambda_ = [tensor.detach().numpy() for tensor in self.lambda_]
+               
 
                     states = np.concatenate([state for state in states], axis=0)
                     controls = np.concatenate([ctrl for ctrl in controls], axis=0)
-                    lambda_ = np.concatenate([lam for lam in lambda_], axis=0)
+                 
 
                     print("states = " , states.T)
                     print("control = " ,controls.T)
-                    print("lambda = " , lambda_.T)
+                 
                     jb = self.ttttotal_cost()
 
                     print("loss = " ,jb )
@@ -406,8 +408,8 @@ class MyModel(nn.Module):
                 
 state_size = 3
 control_size = 2
-T = 0.2
-horizon = 3
+T = 1
+horizon = 2
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 # x_initial = torch.tensor([[1.0, 1.0 ,1.0]]  , dtype=torch.float64)
 
@@ -426,9 +428,9 @@ model = MyModel(A=None, B=None  , Q = Q , R = R, T = T , horizon = horizon , sta
 
 # for i in range(2):
 # model.getJB()
-# model.getGradient()
+model.getGradient()
 # model.getContrain()
 # model.getHessian()
 # model.debug()
 # exit()
-model.train()
+# model.train()
