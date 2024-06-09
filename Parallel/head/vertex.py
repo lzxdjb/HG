@@ -49,6 +49,7 @@ class StateVertex():
 
 
     def getEquality(self):
+        self.EqualityTensorList = []
         for edge in self.Equality[:1]:
             self.EqualityTensorList.append( edge.getEquality())
         
@@ -58,12 +59,15 @@ class StateVertex():
 
     def getJacobian(self):
         # self.jacobians.zero_()
+        self.Jacobian = []
         for index ,edge in enumerate(self.Equality):
             tempJacobian = edge.constraint_jacobian(self.state , index)
             self.Jacobian.append(tempJacobian )
         # print("sdsd = " , self.Jacobian)
     
     def getGradient(self):
+
+        self.Gradient = []
         for index, edge in enumerate(self.Cost):
             tempGradient = edge.CostGradient()
             self.Gradient.append(tempGradient)
@@ -74,6 +78,8 @@ class StateVertex():
 
     def getHessian(self):
         # self.gradients.zero_()
+
+        self.Hessian = []
         for index, edge in enumerate(self.Cost):
             tempHessian = edge.CostHessian()
             self.Hessian.append(tempHessian)
@@ -83,9 +89,6 @@ class StateVertex():
             self.Hessian.append ( torch.zeros((StateShape , StateShape) ,device='cpu' , dtype = torch.float64))
 
         # print("sdsd = " , self.Hessian)
-
-        
-
 
     def debug(self):
         # print("states.gradient = " , self.gradients)

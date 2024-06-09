@@ -27,28 +27,28 @@ class NewtonMethod():
 
         print("for states")
         for idx, state in enumerate(self.States):
-            print("#######cost :")
-            print(f"States {idx }:")
-            for edge in state.Cost:
-                print(f"  Edge connecting to state {self.States.index(edge.state0) if edge.state0 else 'None'}")
+            # print("#######cost :")
+            # print(f"States {idx }:")
+            # for edge in state.Cost:
+            #     print(f"  Edge connecting to state {self.States.index(edge.state0) if edge.state0 else 'None'}")
 
             print("#######contrain :")
             print(f"States {idx }:")
             for edge in state.Equality:
-                print(f"  Edge connecting to state {self.States.index(edge.state0) if edge.state0 else 'None'} and state {self.States.index(edge.state1) if edge.state1 else 'None'} and control{self.Controls.index(edge.control) if edge.control else 'None'}")
+                print(f"  Edge connecting to  state {self.States.index(edge.state1) if edge.state1 else 'None'} and control{self.Controls.index(edge.control) if edge.control else 'None'}")
 
         print()
         print("for control")
         for idx, control in enumerate(self.Controls):
-            print("#######cost :")
-            print(f"controls {idx }:")
-            for edge in control.Cost:
-                print(f"  Edge connecting to state {self.Controls.index(edge.control) if edge.control else 'None'}")
+            # print("#######cost :")
+            # print(f"controls {idx }:")
+            # for edge in control.Cost:
+            #     print(f"  Edge connecting to state {self.Controls.index(edge.control) if edge.control else 'None'}")
 
             print("#######contrain :")
             print(f"States {idx }:")
             for edge in control.Equality:
-                print(f"  Edge connecting to state {self.States.index(edge.state0) if edge.state0 else 'None'} and state {self.States.index(edge.state1) if edge.state1 else 'None'} and control{self.Controls.index(edge.control) if edge.control else 'None'}")
+                print(f"  Edge connecting to  state {self.States.index(edge.state1) if edge.state1 else 'None'} and control{self.Controls.index(edge.control) if edge.control else 'None'}")
 
     def setup_problem(self, x_initial, x_final , upper_state_constrain = None , lower_state_constrain = None ,upper_control_constrain = None , lower_control_constrain = None):
 
@@ -73,14 +73,10 @@ class NewtonMethod():
             control = ControlVertex(tempControl)
             self.Controls.append(control)
         
-        InitConstrainEdge = EqualityEdge( None, self.States[0] , self.Controls[0])
-        #### Still not get contraint
+     
 
-        self.EqualityEdges.append(InitConstrainEdge)
-
-
-        for i in range(0 , self.horizon - 1):
-            edge = EqualityEdge(self.States[i] ,self.States[i + 1] , self.Controls[i + 1])
+        for i in range(0 , self.horizon):
+            edge = EqualityEdge(x_initial,self.States[i] , self.Controls[i])
             self.EqualityEdges.append(edge)
         
         for j in range(0 , self.horizon - 1):
@@ -133,7 +129,7 @@ class NewtonMethod():
             # print("control = " , index)
             control.getHessian()
 
-    def GetFinalMatrixInverse(self):
+    def GetFinalMatrixInverse(self , StateHessian, controlHessian , Jacobian):
         
         HessianInverse = []
         for i in range(horizon - 1):
@@ -177,17 +173,17 @@ class NewtonMethod():
         # print(clonedControlJB)
             
     
+    def train(self):
+
+        for i in range(self.horizon):
+
+
 
         
-            
-
-    
-
 
 nn = NewtonMethod( A , Q , R , T , horizon , StateShape , ControlShape)
 nn.setup_problem(x_initial ,x_final)
-nn.ProblemGetJB()
-nn.ProblemGetHessian() 
-
-
-nn.GetFinalMatrixInverse()  
+# nn.debug_output()
+# nn.ProblemGetJB()
+# nn.ProblemGetHessian() 
+# nn.GetFinalMatrixInverse()  

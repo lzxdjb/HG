@@ -27,19 +27,19 @@ class MyModel(nn.Module):
 
 
 ####### test
-        # self.states = [x_initial] + [torch.full((1 ,self.state_shape), 1,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        self.states = [x_initial] + [torch.full((1 ,self.state_shape), 1,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
 
-        # self.controls = [torch.full( (1 ,self.control_shape), 1,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        self.controls = [torch.full( (1 ,self.control_shape), 1,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
 
 
 ######
         
 ###### real number:
 
-        self.states = [x_initial] + [torch.full((1 ,self.state_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
-        # self.check_shapes(self.states)
+        # self.states = [x_initial] + [torch.full((1 ,self.state_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        # # self.check_shapes(self.states)
 
-        self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        # self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
         # self.check_shapes(self.controls)
 
         # self.lambda_ = torch.zeros((self.horizon * self.state_shape , 1) , dtype = torch.float64)
@@ -100,8 +100,8 @@ class MyModel(nn.Module):
 
         for i in range(0 , self.horizon):
             varible.append(self.states[i + 1])
-        for i in range(0 , self.horizon):
-            varible.append(self.controls[i])
+        # for i in range(0 , self.horizon):
+        #     varible.append(self.controls[i])
 
         for f in self.equality:
 
@@ -408,7 +408,7 @@ class MyModel(nn.Module):
                 
 state_size = 3
 control_size = 2
-T = 0.2
+T = 1
 horizon = 3
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 # x_initial = torch.tensor([[1.0, 1.0 ,1.0]]  , dtype=torch.float64)
@@ -426,16 +426,15 @@ R = torch.tensor(R, dtype=torch.float64)
 
 model = MyModel(A=None, B=None  , Q = Q , R = R, T = T , horizon = horizon , state_shape=state_size , control_shape=control_size) 
 
-# for i in range(2):
-# Jb1 = model.getJB()
-# Jb2 = model.getJB().t()
+Jb1 = model.getJB()
+Jb2 = model.getJB().t()
 
-# JB = Jb1 @ Jb2
-# print("Jb = " , JB)
+JB = Jb1 @ Jb2
+print("Jb = " , JB)
 # model.getJB()
 # model.getGradient()
 # model.getContrain()
 # model.getHessian()
 # model.debug()
 # exit()
-model.train()
+# model.train()
