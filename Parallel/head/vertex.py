@@ -23,8 +23,8 @@ R = torch.tensor(R, dtype=torch.float64)
 # Q = Q.cuda()
 # R = R.cuda()
 
-T = 2
-horizon = 3
+T = 1
+horizon = 2
 
 class StateVertex():
 
@@ -41,6 +41,8 @@ class StateVertex():
 
         self.EqualityTensorList = []
 
+        self.EqualityTensor = None
+
     def add_Costedge(self, edge):
         self.Cost.append(edge)
     
@@ -55,7 +57,7 @@ class StateVertex():
         
         self.EqualityTensor = torch.cat(self.EqualityTensorList)
         self.EqualityTensor = self.EqualityTensor.unsqueeze(1)
-        print("EqualityTensor = " ,self.EqualityTensor)
+        # print("EqualityTensor = " ,self.EqualityTensor)
 
     def getJacobian(self):
         # self.jacobians.zero_()
@@ -72,8 +74,7 @@ class StateVertex():
             tempGradient = edge.CostGradient()
             self.Gradient.append(tempGradient)
 
-        if len(self.Gradient) == 0:
-            self.Gradient.append ( torch.zeros((StateShape , 1) ,device='cpu' , dtype = torch.float64))
+  
         # print("sdsd = " , self.Gradient)
 
     def getHessian(self):
@@ -85,14 +86,11 @@ class StateVertex():
             self.Hessian.append(tempHessian)
 
 
-        if len(self.Hessian) == 0:
-            self.Hessian.append ( torch.zeros((StateShape , StateShape) ,device='cpu' , dtype = torch.float64))
-
         # print("sdsd = " , self.Hessian)
+            
+    def update(self , vector , learning_rate):
+        self.state += vector * learning_rate
 
-    def debug(self):
-        # print("states.gradient = " , self.gradients)
-        print("states.jacabian = " , self.jacobians)
 
 class ControlVertex():
 
@@ -156,7 +154,7 @@ class ControlVertex():
             self.Jacobian.append(tempJacobian)
         # print("sdsd = " , self.Jacobian)
    
-    def debug(self):
-        # print("states.gradient = " , self.gradients)
-        print("states.jacabian = " , self.jacobians)
+ 
 
+    def update(self , vector , learning_rate):
+        self.control += vector

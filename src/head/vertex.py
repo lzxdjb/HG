@@ -23,7 +23,7 @@ R = torch.tensor(R, dtype=torch.float64)
 # Q = Q.cuda()
 # R = R.cuda()
 
-T = 2
+T = 1
 horizon = 3
 
 class StateVertex():

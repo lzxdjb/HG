@@ -56,11 +56,14 @@ class EqualityEdge():
 
         self.equality = []
 
-        self.equality.append(self.state1.state[0][0] - self.state0.state[0][0] - T * (torch.cos(self.state0.state[0][2]) * self.control.control[0][0]))
+        # print("self.state1.state[0][0] = " , self.state1.state)
+        # print("self.state0[0][0] = " , self.state0)
+        # print("control = " , self.control)
+        self.equality.append(self.state1.state[0][0] - self.state0[0][0] - T * (torch.cos(self.state0[0][2]) * self.control.control[0][0]))
 
-        self.equality.append(self.state1.state[0][1] - self.state0.state[0][1] - T *(torch.sin(self.state0.state[0][2]) * self.control.control[0][0]))
+        self.equality.append(self.state1.state[0][1] - self.state0[0][1] - T *(torch.sin(self.state0[0][2]) * self.control.control[0][0]))
 
-        self.equality.append(self.state1.state[0][2] - self.state0.state[0][2] -  T * self.control.control[0][1])
+        self.equality.append(self.state1.state[0][2] - self.state0[0][2] -  T * self.control.control[0][1])
 
       
         
@@ -86,6 +89,6 @@ class EqualityEdge():
         else:
             # print("change[0][2] = " , change[0][0])
             return torch.tensor(
-            [[-1 , 0 , change[0][2] * torch.sin(change[0][2])], 
-            [0 , -1 , -change[0][2] * torch.cos(change[0][2])] , 
-            [0  , 0 , -1]] , device = 'cpu' , dtype = torch.float64)
+            [[1 , 0 , 0], 
+            [0 , 1 , 0], 
+            [0  , 0 , 1]], device = 'cpu' , dtype = torch.float64)

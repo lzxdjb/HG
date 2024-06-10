@@ -5,7 +5,7 @@ torch.autograd.set_detect_anomaly(True)
 from head.edge import StateCostEdge , StateCostEdge , ControlCostEdge , EqualityEdge
 
 from head.vertex import *
-
+import time
 class NewtonMethod():
 
     def __init__(self, x_initial, x_final, StateShape, ControlShape, Q, R, A):
@@ -79,16 +79,13 @@ class NewtonMethod():
             edge = EqualityEdge(x_initial,self.States[i] , self.Controls[i])
             self.EqualityEdges.append(edge)
         
-        for j in range(0 , self.horizon - 1):
+        for j in range(0 , self.horizon):
             edge = StateCostEdge(self.States[j])
             self.StateCost.append(edge)
 
             edge = ControlCostEdge(self.Controls[j])
             self.ControlCost.append(edge)
 
-
-        FinalEdge = ControlCostEdge(self.Controls[self.horizon - 1])
-        self.ControlCost.append(FinalEdge)
 
     def ProblemGetEquality(self):
 
@@ -99,7 +96,7 @@ class NewtonMethod():
         # print(self.ProblemEqualityTensor)
 
         for index , state in enumerate(self.States):
-            print("state = " , index)
+            # print("state = " , index)
             state.getEquality()
         # for index , control in enumerate(self.Controls):
         #     print("control = " , index)
@@ -129,53 +126,117 @@ class NewtonMethod():
             # print("control = " , index)
             control.getHessian()
 
-    def GetFinalMatrixInverse(self , StateHessian, controlHessian , Jacobian):
+    def GetFinalMatrixInverse(self , StateHessian, ControlHessian , StateJacobian , ControlJacobian):
+
+        # print("StateHessian = " , StateHessian)
+        # print("ControlHessian = " , ControlHessian)
+        # print("StateJacobian = " , StateJacobian)
+        # print("ControlJacobian = " , ControlJacobian)
+
+ 
+        Total = StateShape + ControlShape
+        Hessian = torch.zeros((Total, Total) , device = 'cpu' , dtype = torch.float64)
+
+        Hessian[:StateShape, :StateShape] = StateHessian
+
+        Hessian[StateShape:, StateShape:] = ControlHessian
+
+        # print("Hessian = " , Hessian)
+
+        CombinedJacobian = torch.cat((StateJacobian, ControlJacobian), dim=1)
+
+        # print("CombinedJacobian = " , CombinedJacobian)
+
+
+        JT = CombinedJacobian.t()
+        zero_block = torch.zeros(CombinedJacobian.size(0), CombinedJacobian.size(0) ,dtype=torch.float64)
+
+
+        top_block = torch.cat((Hessian, JT), dim=1)
+
+        bottom_block = torch.cat((CombinedJacobian, zero_block), dim=1)
+
+        final_matrix = torch.cat((top_block, bottom_block), dim=0)
+        # print(final_matrix)
+            
+        return final_matrix.inverse()
+    
+    def GetFinalColumn(self , StateGradient , ControlGradient  , StateContrain):
         
-        HessianInverse = []
-        for i in range(horizon - 1):
-            HessianInverse.append(self.States[i].Hessian[0].inverse())
+        # print("StateGradient = " ,  StateGradient)
+        # print("StateGradient" , ControlGradient)
+        # print("StateContrain = ",StateContrain)
+        final_g = torch.cat((StateGradient ,ControlGradient) , dim = 0 )
 
-        HessianInverse.append(torch.zeros((StateShape , StateShape) ,device='cpu' , dtype = torch.float64))
+        # print("final_g = " , final_g.shape)
+        # print("StateContrain = " , StateContrain.shape)
 
-        for k in range(horizon):
+        final_column = torch.cat((final_g , StateContrain) , dim = 0)
+        # print("asdfasdf = " , final_column)
+        return  - final_column
+    
+    def debug(self ,  i):
+        print("EqualityTensor" , self.States[i].EqualityTensor)
 
-            HessianInverse.append(self.Controls[k].Hessian[0].inverse())
+        print("self.States[i]" , self.States[i].state)
 
-        self.sparse = []
-
-        i = 0
-
-        self.sparse.append(((i , i) ,self.States[i].Jacobian[0] @ self.States[i].Jacobian[0].t()))
-
-        self.sparse.append(((i , i + 1) , self.States[i].Jacobian[0] @ self.States[i].Jacobian[1].t()))
-
-        for i in range(1 , self.horizon - 1):
-            self.sparse.append(((i , i - 1) , self.States[i - 1].Jacobian[1] @ self.States[i - 1].Jacobian[0].t() ))
-
-            self.sparse.append(((i , i) , self.States[i - 1].Jacobian[1] @ self.States[i - 1].Jacobian[1].t() + self.States[i].Jacobian[0] @ self.States[i].Jacobian[0].t()))
-
-            self.sparse.append(((i , i + 1) , self.States[i].Jacobian[0] @ self.States[i].Jacobian[1].t()))
-
-        i = self.horizon - 1
-
-        self.sparse.append(((i , i - 1) , self.States[i - 1].Jacobian[1] @ self.States[i - 1].Jacobian[0].t() ))
-
-        self.sparse.append(((i , i) , self.States[i - 1].Jacobian[1] @ self.States[i - 1].Jacobian[1].t() + self.States[i].Jacobian[0] @ self.States[i].Jacobian[0].t()))
-
-        print("sparse = " , self.sparse)
-
-            
-        # clonedStateJB = [copy.deepcopy(instance.Jacobian) for instance in self.States]
-
-        # clonedControlJB = [copy.deepcopy(instance.Jacobian) for instance in self.States]
-
-        # print(clonedStateJB)
-        # print(clonedControlJB)
-            
+        print("self.Controls[i]" , self.Controls[i].control)           
     
     def train(self):
 
+     
+        learning_rate = float(1)
+
+        # for i in range(self.horizon):
+        # print(len(self.EqualityEdges))
+        # exit()
         for i in range(self.horizon):
+
+            while 1:
+            # for i in range():
+                
+                nn.ProblemGetJB()
+                nn.ProblemGetEquality()
+                nn.ProblemGetHessian() 
+                nn.ProblemGetGradient()
+
+                A = self.GetFinalMatrixInverse(self.States[i].Hessian[0] , self.Controls[i].Hessian[0] , self.States[i].Jacobian[0] , self.Controls[i].Jacobian[0])
+                # print("a = " , A)
+                B = self.GetFinalColumn(self.States[i].Gradient[0] , self.Controls[i].Gradient[0] , self.States[i].EqualityTensor)
+
+                # exit()
+
+                vector = A @ B
+
+                temp = vector[0: StateShape, 0]
+                self.States[i].update(temp.t() , learning_rate)
+
+                temp = vector[StateShape: StateShape + ControlShape , 0]
+                self.Controls[i].update(temp.t() , learning_rate)
+
+                loss_current = torch.norm(vector[:StateShape + ControlShape ,0])
+                print("loss = " , loss_current)
+                # self.debug(i)
+
+
+                if loss_current < 1e-8:
+                    if i != horizon - 1:
+                        # print("asd" , self.EqualityEdges[i + 1].state0)
+
+                        self.EqualityEdges[i + 1].state0 = self.States[i].state
+
+                        # print("dkdk" , self.EqualityEdges[i + 1].state0)
+                    # exit()
+                        # time.sleep(1)
+                        print("##############@@@@@@@@@@@@@@")
+                    break
+
+        print(self.States)
+        print(self.Controls)
+
+
+                
+
 
 
 
@@ -186,4 +247,5 @@ nn.setup_problem(x_initial ,x_final)
 # nn.debug_output()
 # nn.ProblemGetJB()
 # nn.ProblemGetHessian() 
-# nn.GetFinalMatrixInverse()  
+# nn.GetFinalMatrixInverse() 
+nn.train() 
