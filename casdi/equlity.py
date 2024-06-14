@@ -8,7 +8,6 @@ import numpy as np
 import time
 from draw import Draw_MPC_point_stabilization_v1
 
-
 def shift_movement(T, t0, x0, u, x_f, f):
     f_value = f(x0, u[:, 0])
     control = u[:, 0]
@@ -22,7 +21,7 @@ def shift_movement(T, t0, x0, u, x_f, f):
 
 if __name__ == "__main__":
     T = 0.2  # sampling time [s]
-    N = 3  # prediction horizon
+    N = 2  # prediction horizon
     rob_diam = 0.3  # [m]
     v_max = 1e100
     omega_max = 1e100
@@ -77,14 +76,14 @@ if __name__ == "__main__":
 
     nlp_prob = {"f": obj, "x": opt_variables, "p": P, "g": ca.vertcat(*g)}
 
-    print("Objective function:")
-    print(obj)
+    # print("Objective function:")
+    # print(obj)
 
-    print("\nConstraints:")
-    for constraint in g:
-        print(constraint)
+    # print("\nConstraints:")
+    # for constraint in g:
+        # print(constraint)
 
-    print("#############")
+    # print("#############")
     opts_setting = {
         "ipopt.max_iter": 100,
         "ipopt.print_level": 0,
@@ -136,6 +135,7 @@ if __name__ == "__main__":
     # initial test
     while np.linalg.norm(x0 - xs) > 1e-2 and mpciter - sim_time / T < 0.0:
         # set parameter
+        start_time = time.time()
         c_p = np.concatenate((x0, xs))
         init_control = np.concatenate(
             (u0.T.reshape(-1, 1), next_states.T.reshape(-1, 1))
@@ -150,33 +150,38 @@ if __name__ == "__main__":
         estimated_opt = res[
             "x"
         ].full()  # the feedback is in the series [u0, x0, u1, x1, ...]
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        print("elapsed_time = " , elapsed_time)
+        break
         u0 = estimated_opt[:N * n_controls].reshape(N, n_controls).T  # (n_controls, N)
         x_m = estimated_opt[N * n_controls:].reshape(N + 1, n_states).T  # [n_states, N]
         x_c.append(x_m.T)
         u_c.append(u0[:, 0])
         t_c.append(t0)
-        print("u0 = " , u0)
-        print()
-        print("x_m = " , x_m)
+        # print("u0 = " , u0)
+        # print()
+        # print("x_m = " , x_m)
        
 
         states = np.zeros((3, u0.shape[1] + 1))
         states[:, 0] = [0 , 0 , 0]
         # Iterative computation of states
-        for i in range(N):
-            previous = states[: , i]
-            B = np.array([[np.cos(previous[2]), 0],
-                        [np.sin(previous[2]), 0],
-                            [0, 1]]) * T
+        # for i in range(N):
+        #     previous = states[: , i]
+        #     B = np.array([[np.cos(previous[2]), 0],
+        #                 [np.sin(previous[2]), 0],
+        #                     [0, 1]]) * T
             
-            states[:, i + 1] = states[:, i] + B @ u0[:, i]
-            print()
-            # print("states[:, i] = " , states[:, i])
+        #     states[:, i + 1] = states[:, i] + B @ u0[:, i]
+        #     print()
+        #     print("states[:, i] = " , states[:, i])
             # print("B = " , B)
             # print("u0[:, i] = " , u0[:, i])
-            print()
-        print("states = " , states)
-        print("objective_value_np = " , objective_value_np)
+            # print()
+        # print("states = " , states)
+        # print("objective_value_np = " , objective_value_np)
         # exit()
 
         t0, x0, control , u0, next_states = shift_movement(T, t0, x0, u0, x_m, f)
@@ -188,8 +193,9 @@ if __name__ == "__main__":
         # print("uu = " , uu)
         # exit()
         mpciter = mpciter + 1
-    t_v = np.array(index_t)
-    # print(t_v.mean())
+    
+    # t_v = np.array(index_t)
+    # print("t_v = " , t_v.mean())
     # print((time.time() - start_time) / (mpciter))
 
     draw_result = Draw_MPC_point_stabilization_v1(

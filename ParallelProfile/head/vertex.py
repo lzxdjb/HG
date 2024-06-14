@@ -24,7 +24,7 @@ R = torch.tensor(R, dtype=torch.float64)
 # R = R.cuda()
 
 T = 1
-horizon = 2
+horizon = 1
 
 class StateVertex():
 

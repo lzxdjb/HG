@@ -6,6 +6,7 @@ from head.edge import StateCostEdge , StateCostEdge , ControlCostEdge , Equality
 
 from head.vertex import *
 import time
+
 class NewtonMethod():
 
     def __init__(self, x_initial, x_final, StateShape, ControlShape, Q, R, A):
@@ -184,26 +185,54 @@ class NewtonMethod():
     
     def train(self):
 
-     
+
         learning_rate = float(1)
 
         # for i in range(self.horizon):
         # print(len(self.EqualityEdges))
         # exit()
+        start_time = time.time()
         for i in range(self.horizon):
 
             while 1:
             # for i in range():
-                
+                start_time = time.time()
                 nn.ProblemGetJB()
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print("ProblemGetJB = " , elapsed_time)
+
+                start_time = time.time()
                 nn.ProblemGetEquality()
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print("ProblemGetEquality = " , elapsed_time)
+            
+                start_time = time.time()
                 nn.ProblemGetHessian() 
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print("ProblemGetHessian = " , elapsed_time)
+
+                start_time = time.time()
                 nn.ProblemGetGradient()
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print("ProblemGetGradient = " , elapsed_time)
 
+
+                start_time = time.time()
                 A = self.GetFinalMatrixInverse(self.States[i].Hessian[0] , self.Controls[i].Hessian[0] , self.States[i].Jacobian[0] , self.Controls[i].Jacobian[0])
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print("GetFinalMatrixInverse = " , elapsed_time)
+            
                 # print("a = " , A)
+                start_time = time.time()
                 B = self.GetFinalColumn(self.States[i].Gradient[0] , self.Controls[i].Gradient[0] , self.States[i].EqualityTensor)
-
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print("GetFinalColumn = " , elapsed_time)
                 # exit()
 
                 vector = A @ B
@@ -215,7 +244,7 @@ class NewtonMethod():
                 self.Controls[i].update(temp.t() , learning_rate)
 
                 loss_current = torch.norm(vector[:StateShape + ControlShape ,0])
-                print("loss = " , loss_current)
+                # print("loss = " , loss_current)
                 # self.debug(i)
 
 
@@ -228,11 +257,15 @@ class NewtonMethod():
                         # print("dkdk" , self.EqualityEdges[i + 1].state0)
                     # exit()
                         # time.sleep(1)
-                        print("##############@@@@@@@@@@@@@@")
+                        # print("##############@@@@@@@@@@@@@@")
                     break
 
-        print(self.States)
-        print(self.Controls)
+        # print(self.States)
+        # print(self.Controls)
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print("elapsed_time = " , elapsed_time)
 
 
                 

@@ -113,7 +113,7 @@ class MyModel(nn.Module):
 
         self.jacobian = jacobian_matrix
 
-        print(jacobian_matrix)
+        # print(jacobian_matrix)
     
         return jacobian_matrix
     
@@ -180,7 +180,7 @@ class MyModel(nn.Module):
 
         self.gradient = grad_f
 
-        print("gradient = " , self.gradient)
+        # print("gradient =/ " , self.gradient)
         return grad_f
 
     def getContrain(self):
@@ -318,7 +318,7 @@ class MyModel(nn.Module):
                 A = self.getfinalmatrix()
                 djb = A.clone()
                 det = np.linalg.det(djb.detach())
-                print("invertible ? " , det != 0)
+                # print("invertible ? " , det != 0)
 
                 B = self.getfinalcolumn()
 
@@ -327,7 +327,16 @@ class MyModel(nn.Module):
                 # print()
 
                 vector = A @ B
+                solution = torch.linalg.lstsq(self.getJB(), self.getContrain())
+                solution = solution.solution
+
+                print("vector = " , vector[:self.horizon* (self.state_shape + self.control_shape) ,0])
+
+                print("solution = " , solution)
+
+                exit()
                 self.update(vector ,learning_rate)
+                
                 
 
                 loss_current = torch.norm(vector[:self.horizon* (self.state_shape + self.control_shape) ,0])
@@ -340,16 +349,6 @@ class MyModel(nn.Module):
                 # print("cost = " ,cost )
                 print()
                 print("############")
-
-                # loss_list.append(loss_current.item())
-                # plt.plot(loss_list, label='Loss')
-                # plt.xlabel('Iteration')
-                # plt.ylabel('Loss')
-                # plt.title('Loss over iterations')
-                # plt.legend()
-                # plt.grid(True)
-                # plt.pause(0.01)  # Add a pause to allow the plot to update
-                # plt.clf()
 
                 loss_list.append(cost.item())
                 plt.plot(loss_list, label='Loss')
@@ -409,7 +408,7 @@ class MyModel(nn.Module):
 state_size = 3
 control_size = 2
 T = 0.2
-horizon = 1
+horizon = 3
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 # x_initial = torch.tensor([[1.0, 1.0 ,1.0]]  , dtype=torch.float64)
 
