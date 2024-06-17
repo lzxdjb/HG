@@ -43,7 +43,7 @@ class MyModel(nn.Module):
         self.states = [x_initial] + [torch.full((1 ,self.state_shape), 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
         # self.check_shapes(self.states)
 
-        self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        self.controls = [torch.full( (1 ,self.control_shape), 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
         # self.check_shapes(self.controls)
 
         self.lambda_ = [torch.full( (1 ,self.state_shape), 1 ,  dtype = torch.float64) for i in range(self.horizon)]
@@ -63,17 +63,16 @@ class MyModel(nn.Module):
         # print(f"lamda_ : {self.lambda_}")
 
     def debug(self):
-        print("jacobian = " , self.jacobian.shape)
-        print("jacobian = " , self.jacobian)
-        print()
+        # print("jacobian = " , self.jacobian.shape)
+        # print("jacobian = " , self.jacobian)
+        # print()
 
-        print("hessian  = " , self.hessian.shape)
-        print("hessian = " , self.hessian)
-        print()
+        # print("hessian  = " , self.hessian.shape)
+        # print("hessian = " , self.hessian)
+        # print()
 
-        print("gradient = " , self.gradient.shape)
-        print("gradient = " , self.gradient)
-        print()
+        print("gradient = " , self.Subgradient)
+      
 
         print("self.constrain_h = " , self.constrain_h.shape)
         print("self.constrain_h = " , self.constrain_h)
@@ -100,6 +99,24 @@ class MyModel(nn.Module):
             temp += self.lambda_[i][0][k] * equality[k]
 
         return temp
+    
+    def getContrain(self , i):
+        equality = []
+
+  
+        equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][0] - self.states[i][0][0] - self.T *torch.cos(self.states[i][0][2]) * self.controls[i][0][0]), dim=0))
+
+        equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][1] - self.states[i][0][1] - self.T *torch.sin(self.states[i][0][2]) * self.controls[i][0][0]), dim=0))
+            
+        equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][2] - self.states[i][0][2] - self.T * self.controls[i][0][1]), dim=0))
+
+        big_tensor = torch.cat(equality, dim=0)
+        big_tensor = torch.unsqueeze(big_tensor, dim=1)
+
+        self.constrain_h = big_tensor
+
+        # print("equality = " , big_tensor)
+        return big_tensor
     
     def getGradient(self):
 
@@ -141,8 +158,6 @@ class MyModel(nn.Module):
       
         for i in range(1 , self.horizon):
 
-
-
             self.SubProblem.append( (self.states[i] - self.x_final) @ self.Q @ (self.states[i] - self.x_final).t() + self.controls[i] @ self.R @ self.controls[i].t() + \
             self.constrain(i - 1) + self.constrain(i))
 
@@ -153,35 +168,42 @@ class MyModel(nn.Module):
 
    
 
-    def update(self , learing_rate):
+    def update(self , learing_rate , iteration):
 
-        print("self.gradient = " , self.Subgradient)
+        # print("self.gradient = " , self.Subgradient)
         temp = self.Subgradient[0].t()
         jj = self.controls[0].clone()
         # print("temp = " , temp.shape)
-        jj += learing_rate * temp
+        jj -= learing_rate * temp
         self.controls[0] = jj
 
         for i in range(1 , self.horizon):
 
             temp = self.Subgradient[i].t()
             jj = self.states[i + 1].clone()
-            jj += learing_rate * temp[0 ,  : self.state_shape].unsqueeze(dim = 0)
+            jj -= learing_rate * temp[0 ,  : self.state_shape].unsqueeze(dim = 0)
             self.states[i + 1] = jj
 
             # print(jj.shape)
             # print(temp[0 , :self.control_shape].unsqueeze(dim = 0).shape)
             
             jj = self.controls[i].clone()
-            jj += learing_rate * temp[0 , self.state_shape : self.state_shape + self.control_shape].unsqueeze(dim = 0)
+            jj -= learing_rate * temp[0 , self.state_shape 
+            : self.state_shape + self.control_shape].unsqueeze(dim = 0)
 
           
             self.controls[i] = jj
 
         temp = self.Subgradient[self.horizon].t()
         jj = self.states[self.horizon].clone()
-        jj += learing_rate * temp
+        jj -= learing_rate * temp
         self.states[self.horizon] = jj
+
+        a = 1
+        b = 0.1
+
+        for i in range(self.horizon):
+            self.lambda_[i] += 1 / (a + b * iteration) * self.getContrain(i).t() / torch.norm(self.getContrain(i))
     
     def updateState(self):
         zero_tensor = torch.zeros_like(self.states[-1])
@@ -210,16 +232,7 @@ class MyModel(nn.Module):
     
     def train(self):
 
-        loss_list = []
-        totolsize = self.horizon * (self.state_shape  * 2 + self.control_shape)
-
-    
-        learning_rate = float(1)
-
-        vector = torch.zeros((totolsize , 1) , dtype = torch.float64)
-        
-
-        # self.update(vector , learning_rate)
+        learning_rate = float(0.01)
         
         iteration = 0
         while 1:
@@ -232,39 +245,32 @@ class MyModel(nn.Module):
                 self.update(learning_rate , iteration)
 
                 iteration += 1
-                exit()
-
-                # print()
-                # self.debug()
-                # print()
-
-                vector = A @ B
-                print("vector = " , vector)
                 # exit()
-                self.update(vector ,learning_rate , 0)
-                # exit()
-
-                loss_current = torch.norm(vector[:(self.state_shape + self.control_shape) ,0])
+            
+                lambda_ = torch.stack(self.lambda_)
+                loss_current = torch.norm(lambda_)
                 cost = self.ttttotal_cost()
                 print("############")
                 print()
-                self.bug()
+                # self.bug()
                 # exit()
                 self.debug()
                 print("loss = " , loss_current)
-                # exit()
-                print()
-                print("############")
+                print("cost = " , cost)
 
-                loss_list.append(cost.item())
-                plt.plot(loss_list, label='Loss')
-                plt.xlabel('Iteration')
-                plt.ylabel('Loss')
-                plt.title('Loss over iterations')
-                plt.legend()
-                plt.grid(True)
-                plt.pause(0.01)  # Add a pause to allow the plot to update
-                plt.clf()
+                # exit()
+                # print()
+                # print("############")
+
+                # loss_list.append(cost.item())
+                # plt.plot(loss_list, label='Loss')
+                # plt.xlabel('Iteration')
+                # plt.ylabel('Loss')
+                # plt.title('Loss over iterations')
+                # plt.legend()
+                # plt.grid(True)
+                # plt.pause(0.01)  # Add a pause to allow the plot to update
+                # plt.clf()
 
                 if loss_current < 1e-8:
                     print("################")
@@ -290,7 +296,7 @@ class MyModel(nn.Module):
 state_size = 3
 control_size = 2
 T = 1
-horizon = 2
+horizon = 1
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 # x_initial = torch.tensor([[ 1.0000e+00,  5.4629e-09, -5.0000e-01]]  , dtype=torch.float64)
 
