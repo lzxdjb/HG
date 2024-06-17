@@ -47,7 +47,7 @@ class MyModel(nn.Module):
         self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
         # self.check_shapes(self.controls)
 
-        self.lambda_ = [torch.full( (1 ,self.state_shape), 1 ,  dtype = torch.float64) for i in range(self.horizon)]
+        self.lambda_ = [torch.full( (1 ,self.state_shape), 1e-10 ,  dtype = torch.float64) for i in range(self.horizon)]
 ######
         
     def check_shapes(self , states):
@@ -62,7 +62,7 @@ class MyModel(nn.Module):
             print(f"control {i}: {state}")
 
        
-        print(f"lamda_ : {self.lambda_}")
+        # print(f"lamda_ : {self.lambda_}")
 
     def debug(self):
        
@@ -70,7 +70,7 @@ class MyModel(nn.Module):
       
 
         # print("self.constrain_h = " , self.constrain_h.shape)
-        print("self.constrain_h = " , self.debugGetConstrain())
+        print("self.constrain_h = " , self.constrain_h)
 
     def ttttotal_cost(self):
         jj = 0.0
@@ -109,21 +109,6 @@ class MyModel(nn.Module):
             temp += self.lambda_[i][0][k] * equality[k]
 
         return temp
-    
-    def debugGetConstrain(self):
-        equality = []
-
-        for i in range(self.horizon):
-            equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][0] - self.states[i][0][0] - self.T *torch.cos(self.states[i][0][2]) * self.controls[i][0][0]), dim=0))
-
-            equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][1] - self.states[i][0][1] - self.T *torch.sin(self.states[i][0][2]) * self.controls[i][0][0]), dim=0))
-            
-            equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][2] - self.states[i][0][2] - self.T * self.controls[i][0][1]), dim=0))
-
-        big_tensor = torch.cat(equality, dim=0)
-        big_tensor = torch.unsqueeze(big_tensor, dim=1)
-
-        return big_tensor
     
     def getContrain(self , i):
         equality = []
@@ -169,15 +154,29 @@ class MyModel(nn.Module):
         self.Subgradient = []
       
       
+        # related_variables_count = self.count_related_variables(ss[i])
+        # print(f"Number of variables related to self.SubProblem[{i}]: {related_variables_count}")
+        print("self.varible[i] = " , self.varible[1])
+
+        jjjjjj = self.count_related_variables(ss[0])
+        print(f"Number of variables related to self.SubProblem[{0}]: {jjjjjj}")
+
+        # print("self.varible[i] = " , self.varible[1])
         for i in range(0 , self.horizon + 1):
+            start_time = time.time()
+            # print("i = " , i)
             grad_f = torch.autograd.grad(ss, self.varible[i], create_graph=True, allow_unused=True)
             grad_f = torch.cat(grad_f , dim=1).t()
             self.Subgradient.append(grad_f)
-            
-         
+            end_time = time.time()
+            time_consumed = end_time - start_time
+            print(f"{i} iteration: Time consumed: {time_consumed} seconds")
+
+    
     def GetProblem(self):
         SubProblem = []
 
+  
         SubProblem.append(self.controls[0] @ self.R @ self.controls[0].t()  + self.constrain(0))
 
         for i in range(1 , self.horizon):
@@ -186,7 +185,7 @@ class MyModel(nn.Module):
 
         SubProblem.append((self.states[self.horizon] - self.x_final) @ self.Q @ (self.states[self.horizon] - self.x_final).t() + self.constrain(self.horizon - 1))
 
-        # print("problem = " , SubProblem)
+        print("problem = " , SubProblem)
 
         return SubProblem
         
@@ -195,30 +194,33 @@ class MyModel(nn.Module):
 
     def update(self , learing_rate , iteration):
 
+        # print("self.gradient = " , self.Subgradient)
         temp = self.Subgradient[0].t()
-        jj = self.controls[0].detach().clone()
+        jj = self.controls[0].clone()
+        # print("temp = " , temp.shape)
         jj -= learing_rate * temp
-        self.controls[0].data = jj
+        self.controls[0] = jj
 
         for i in range(1 , self.horizon):
 
             temp = self.Subgradient[i].t()
             jj = self.states[i + 1].detach().clone()
             jj -= learing_rate * temp[: ,  : self.state_shape]
-            self.states[i + 1].data = jj
+            self.states[i + 1] = jj
 
-    
+            # print(jj.shape)
+            print(temp[:, :self.control_shape].shape)
             
             jj1 = self.controls[i].detach().clone()
             jj1 -= learing_rate * temp[: , self.state_shape 
             : self.state_shape + self.control_shape]
-            self.controls[i].data = jj1
+            self.controls[i] = jj1
             
 
         temp = self.Subgradient[self.horizon].t()
-        jj = self.states[self.horizon].detach().clone()
+        jj = self.states[self.horizon].clone()
         jj -= learing_rate * temp
-        self.states[self.horizon].data = jj
+        self.states[self.horizon] = jj
 
         a = 1
         b = 0.1
@@ -226,14 +228,36 @@ class MyModel(nn.Module):
         for i in range(self.horizon):
             self.lambda_[i] += 1 / (a + b * iteration) * self.getContrain(i).t() / torch.norm(self.getContrain(i))
     
+    def updateState(self):
+        zero_tensor = torch.zeros_like(self.states[-1])
+        shifted_states = self.states[1:] + [zero_tensor]
+        self.states = shifted_states
+
+        shifted_control = self.controls[1:] + self.controls[0]
+        self.controls = shifted_control
+
+        
+        # print(self.states)
+        # print(self.controls)
+
    
+
+    def JudgeFullRank(self ,matrix):
+
+        rank = np.linalg.matrix_rank(matrix.detach().numpy())
+        num_rows = matrix.shape[0]
+        is_full_row_rank = (rank == num_rows)
+        print(f"Rank of the Jacobian matrix: {rank}")
+        print(f"Number of rows: {num_rows}")
+        print(f"Is the Jacobian matrix full row rank? {'Yes' if is_full_row_rank else 'No'}")
+
+
     
     def train(self):
 
-        learning_rate = float(0.5)
+        learning_rate = float(0.01)
         iteration = 0
-        loss_list = []
-        cost_list = []
+        
         # self.GetProblem()
 
         while 1:
@@ -245,7 +269,6 @@ class MyModel(nn.Module):
                 # subgradient = self.Subgradient[i]
                 # print("subgradient = " , subgradient.shape)
                 last_lambda_ = torch.stack(self.lambda_)
-                # with torch.no_grad():
                 self.update(learning_rate , iteration)
 
                 iteration += 1
@@ -254,29 +277,26 @@ class MyModel(nn.Module):
                 lambda_ = torch.stack(self.lambda_)
                 loss_current = torch.norm(lambda_ - last_lambda_) / torch.norm(last_lambda_)
                 cost = self.ttttotal_cost()
-                print("############")
-                print()
-                self.bug()
-                # exit()
-                self.debug()
-                print("loss = " , loss_current)
-                print("cost = " , cost)
-                # exit()
-                print()
-                print("############")
+                # print("############")
+                # print()
+                # self.bug()
+                # # exit()
+                # self.debug()
+                # print("loss = " , loss_current)
+                # print("cost = " , cost)
+                # # exit()
+                # print()
+                # print("############")
 
-                loss_list.append(loss_current.item())
-                cost_list.append(cost.item())
-                plt.plot(loss_list, label='Loss')
-                plt.plot(cost_list, label='cost')
-
-                plt.xlabel('Iteration')
-                plt.ylabel('Loss')
-                plt.title('Loss over iterations')
-                plt.legend()
-                plt.grid(True)
-                plt.pause(0.01)  # Add a pause to allow the plot to update
-                plt.clf()
+                # loss_list.append(cost.item())
+                # plt.plot(loss_list, label='Loss')
+                # plt.xlabel('Iteration')
+                # plt.ylabel('Loss')
+                # plt.title('Loss over iterations')
+                # plt.legend()
+                # plt.grid(True)
+                # plt.pause(0.01)  # Add a pause to allow the plot to update
+                # plt.clf()
 
                 if loss_current < 1e-8:
                     print("################")
@@ -302,7 +322,7 @@ class MyModel(nn.Module):
 state_size = 3
 control_size = 2
 T = 1
-horizon = 2
+horizon = 1
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 # x_initial = torch.tensor([[ 1.0000e+00,  5.4629e-09, -5.0000e-01]]  , dtype=torch.float64)
 
