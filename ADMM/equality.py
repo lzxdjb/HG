@@ -153,51 +153,35 @@ class MyModel(nn.Module):
 
    
 
-    def update(self , vector , learing_rate , i):
+    def update(self , learing_rate):
 
-        control_base =  self.state_shape
+        print("self.gradient = " , self.Subgradient)
+        temp = self.Subgradient[0].t()
+        jj = self.controls[0].clone()
+        # print("temp = " , temp.shape)
+        jj += learing_rate * temp
+        self.controls[0] = jj
 
-        dual_base =(self.control_shape + self.state_shape)
+        for i in range(1 , self.horizon):
 
-        temp = vector[0: control_base, 0]
-        # print("temp.shape = " , temp.shape)
-        jj = self.states[i + 1].clone()
-        jj += learing_rate * temp.unsqueeze(dim = 0)
-        self.states[i + 1] = jj
+            temp = self.Subgradient[i].t()
+            jj = self.states[i + 1].clone()
+            jj += learing_rate * temp[0 ,  : self.state_shape].unsqueeze(dim = 0)
+            self.states[i + 1] = jj
 
-        temp = vector[control_base: dual_base, 0]
-        jj = self.controls[i].clone()
-        jj += learing_rate *temp.unsqueeze(dim = 0)
-        self.controls[i] = jj
-        
-        # temp = vector[dual_base: , 0]
-        # self.lambda_ += learing_rate * temp.unsqueeze(dim = 1)
-
-    def getfinalmatrix(self , i):
+            # print(jj.shape)
+            # print(temp[0 , :self.control_shape].unsqueeze(dim = 0).shape)
             
-        hessian = self.getHessian(i)
-        # print("hessian = ")
-        Jacobian = self.getJB(i)
-        JT = Jacobian.t()
-        zero_block = torch.zeros(Jacobian.size(0), Jacobian.size(0) ,dtype=torch.float64)
+            jj = self.controls[i].clone()
+            jj += learing_rate * temp[0 , self.state_shape : self.state_shape + self.control_shape].unsqueeze(dim = 0)
 
-        top_block = torch.cat((hessian, JT), dim=1)
+          
+            self.controls[i] = jj
 
-        bottom_block = torch.cat((Jacobian, zero_block), dim=1)
-
-        final_matrix = torch.cat((top_block, bottom_block), dim=0)
-
-        # print(final_matrix)
-            
-        return final_matrix.inverse()
-    
-    def getfinalcolumn(self , i):
-        g = self.getGradient(i)
-        h = self.getContrain(i)
-
-        final_column = torch.cat((g , h) , dim = 0)
-        # print("asdfasdf = " , final_column)
-        return  - final_column
+        temp = self.Subgradient[self.horizon].t()
+        jj = self.states[self.horizon].clone()
+        jj += learing_rate * temp
+        self.states[self.horizon] = jj
     
     def updateState(self):
         zero_tensor = torch.zeros_like(self.states[-1])
@@ -230,20 +214,24 @@ class MyModel(nn.Module):
         totolsize = self.horizon * (self.state_shape  * 2 + self.control_shape)
 
     
-        learning_rate = float(0.2)
+        learning_rate = float(1)
 
         vector = torch.zeros((totolsize , 1) , dtype = torch.float64)
         
 
         # self.update(vector , learning_rate)
+        
+        iteration = 0
         while 1:
-        # for i in range(1):
+        # for j in range():
             for i in range(self.horizon + 1):
 
                 self.getGradient()
                 # subgradient = self.Subgradient[i]
                 # print("subgradient = " , subgradient.shape)
-                self.update()
+                self.update(learning_rate , iteration)
+
+                iteration += 1
                 exit()
 
                 # print()
@@ -302,7 +290,7 @@ class MyModel(nn.Module):
 state_size = 3
 control_size = 2
 T = 1
-horizon = 1
+horizon = 2
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 # x_initial = torch.tensor([[ 1.0000e+00,  5.4629e-09, -5.0000e-01]]  , dtype=torch.float64)
 

@@ -42,7 +42,7 @@ class MyModel(nn.Module):
         self.controls = [torch.full( (1 ,self.control_shape), 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
         # self.check_shapes(self.controls)
 
-        self.lambda_ = torch.zeros((self.horizon * self.state_shape , 1) , dtype = torch.float64)
+        # self.lambda_ = torch.zeros((self.horizon * self.state_shape , 1) , dtype = torch.float64)
 ######
         
     def check_shapes(self , states):
@@ -320,7 +320,7 @@ class MyModel(nn.Module):
                 self.debug()
                 print("loss = " , loss_current)
                 # print("cost = " ,cost )
-                exit()
+                # exit()
                 print()
                 print("############")
 
