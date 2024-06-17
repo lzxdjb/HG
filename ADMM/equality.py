@@ -43,10 +43,10 @@ class MyModel(nn.Module):
         self.states = [x_initial] + [torch.full((1 ,self.state_shape), 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
         # self.check_shapes(self.states)
 
-        self.controls = [torch.full( (1 ,self.control_shape), 1 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+        self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
         # self.check_shapes(self.controls)
 
-        self.lambda_ = [torch.full( (1 ,self.state_shape), 2 ,  dtype = torch.float64) for i in range(self.horizon)]
+        self.lambda_ = [torch.full( (1 ,self.state_shape), 1 ,  dtype = torch.float64) for i in range(self.horizon)]
 ######
         
     def check_shapes(self , states):
@@ -85,86 +85,31 @@ class MyModel(nn.Module):
         # jj += (self.states[0] - self.x_final) @ self.Q @ (self.states[0] - self.x_final).t()
         
         return jj
-
+    
     def constrain(self , i):
         equality = []
 
-        # for i in range(0 , self.horizon):
         equality.append(self.states[i + 1][0][0] - self.states[i][0][0] - self.T * torch.cos(self.states[i][0][2]) * self.controls[i][0][0])
         equality.append(self.states[i + 1][0][1] - self.states[i][0][1] - self.T * torch.sin(self.states[i][0][2]) * self.controls[i][0][0])
         equality.append(self.states[i + 1][0][2] - self.states[i][0][2] - self.T * self.controls[i][0][1])
 
-        return equality
+        # print("equality = " , equality)
+
+        temp = 0
+        for k in range(0 , self.state_shape):
+            temp += self.lambda_[i][0][k] * equality[k]
+
+        return temp
     
-    def getJB(self , i):
-
-        equality = self.constrain(i)
-        jacobian = []
-        varible = []
-
-        # for i in range(0 , self.horizon):
-        varible.append(self.states[i + 1])
-        # for i in range(0 , self.horizon):
-        varible.append(self.controls[i])
-
-        for f in equality:
-
-            grads = torch.autograd.grad(f, varible, allow_unused=True, create_graph=True)
-            grads = [g if g is not None else torch.zeros_like(v) for g, v in zip(grads, varible)]
-            jacobian.append(torch.cat([g.view(-1) for g in grads]))
-
-        jacobian_matrix = torch.stack(jacobian)
-
-        self.jacobian = jacobian_matrix
-
-        print("jacobian_matrix = " , jacobian_matrix)
-    
-        return jacobian_matrix
-    
-    def getHessian(self , k):
-        varible = []
-
-        varible.append(self.states[k + 1])
-        varible.append(self.controls[k])
-        
-        total_cost = 0
-
-       
-        total_cost += (self.states[k + 1] - self.x_final) @ self.Q @ (self.states[k + 1] - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
-
-       
-
-        grad_f = torch.autograd.grad(total_cost, varible, create_graph=True, allow_unused=True)
-
-    
-        grad_f = torch.cat(grad_f , dim=1)
-        # print("grad_f = " , grad_f)
-        # exit()
-        hessian = []
-
-        for g in grad_f[0]:
-            # print("g = " , g)
-            grad2 = torch.autograd.grad(g, varible, retain_graph=True, allow_unused=True)
-            grad2 = [g2 if g2 is not None else torch.zeros_like(v) for g2, v in zip(grad2, varible)]
-            # print("grad2 = " , grad2)
-            hessian.append(torch.cat(grad2 , dim=1))
-
-
-        hessian_matrix = torch.stack(hessian)
-        hessian_matrix = torch.squeeze(hessian_matrix , dim = 1)
-
-        self.hessian = hessian_matrix
-
-
-        print("hessian = " , hessian_matrix)
-        return hessian_matrix
-
     def getGradient(self):
+
+        self.GetProblem()
         self.varible = []
         SubProblemVarible = []
         SubProblemVarible.append(self.controls[0])
         self.varible.append(SubProblemVarible)
-        
+
+
         for i in range(1 , self.horizon):
             SubProblemVarible = []
             SubProblemVarible.append(self.states[i])
@@ -177,59 +122,36 @@ class MyModel(nn.Module):
         self.varible.append(SubProblemVarible)
         
         self.Subgradient = []
-        
+        # print("self.varible = " , self.varible)
         for i in range(0 , len(self.SubProblem)):
+       
             grad_f = torch.autograd.grad(self.SubProblem[i], self.varible[i], create_graph=True, allow_unused=True)
             grad_f = torch.cat(grad_f , dim=1).t()
             self.Subgradient.append(grad_f)
 
-        # self.gradient = grad_f
-
-        print("gradient = \n" , self.Subgradient)
-        # return grad_f
+   
     
     def GetProblem(self):
         self.SubProblem = []
-        
-        self.SubProblem.append(self.controls[0] @ self.R @ self.controls[0].t() + self.lambda_[0] @ self.getContrain(0))
 
-        i = 1
-        print(self.lambda_[i - 1].t())
-        print(self.getContrain(i - 1).t())
-        # print(self.SubProblem[0].shape)
+  
+        self.SubProblem.append(self.controls[0] @ self.R @ self.controls[0].t()  + self.constrain(0))
+
+
+      
         for i in range(1 , self.horizon):
 
-            # tt = self.getContrain(i - 1)
-            # print(self.lambda_[i - 1].shape)
-            # print("tt = " , tt.shape)
-            # print("jbjbjbjb = " , self.getContrain(i - 1).shape)
 
 
             self.SubProblem.append( (self.states[i] - self.x_final) @ self.Q @ (self.states[i] - self.x_final).t() + self.controls[i] @ self.R @ self.controls[i].t() + \
-            self.lambda_[i - 1] @ self.getContrain(i - 1) + self.lambda_[i] @ self.getContrain(i))
+            self.constrain(i - 1) + self.constrain(i))
 
-        self.SubProblem.append((self.states[self.horizon] - self.x_final) @ self.Q @ (self.states[self.horizon]- self.x_final).t() + self.lambda_[self.horizon - 1] @ self.getContrain(self.horizon - 1))
+        self.SubProblem.append((self.states[self.horizon] - self.x_final) @ self.Q @ (self.states[self.horizon] - self.x_final).t() + self.constrain(self.horizon - 1))
 
-        print("problem = " , self.SubProblem)
+        # print("problem = " , self.SubProblem)
         
 
-    def getContrain(self , i):
-        equality = []
-
-  
-        equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][0] - self.states[i][0][0] - self.T *torch.cos(self.states[i][0][2]) * self.controls[i][0][0]), dim=0))
-
-        equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][1] - self.states[i][0][1] - self.T *torch.sin(self.states[i][0][2]) * self.controls[i][0][0]), dim=0))
-            
-        equality.append(torch.unsqueeze(torch.tensor(self.states[i + 1][0][2] - self.states[i][0][2] - self.T * self.controls[i][0][1]), dim=0))
-
-        big_tensor = torch.cat(equality, dim=0)
-        big_tensor = torch.unsqueeze(big_tensor, dim=1)
-
-        self.constrain_h = big_tensor
-
-        # print("big_tensor djbdjb= " , big_tensor.shape)
-        return big_tensor
+   
 
     def update(self , vector , learing_rate , i):
 
@@ -314,21 +236,15 @@ class MyModel(nn.Module):
         
 
         # self.update(vector , learning_rate)
-     
-        for i in range(1):
+        while 1:
+        # for i in range(1):
+            for i in range(self.horizon + 1):
 
-            while 1:
-            # for i in range(1):
-                A = self.getfinalmatrix(0)
-                # exit()
-                print("A = " , A)
-                # djb = A.clone()
-                # det = np.linalg.det(djb.detach())
-                # print("invertible ? " , det != 0)
-
-                B = self.getfinalcolumn(0)
-                # exit()
-                print("B = " , B)
+                self.getGradient()
+                # subgradient = self.Subgradient[i]
+                # print("subgradient = " , subgradient.shape)
+                self.update()
+                exit()
 
                 # print()
                 # self.debug()
@@ -388,9 +304,9 @@ control_size = 2
 T = 1
 horizon = 1
 x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
-x_initial = torch.tensor([[ 1.0000e+00,  5.4629e-09, -5.0000e-01]]  , dtype=torch.float64)
+# x_initial = torch.tensor([[ 1.0000e+00,  5.4629e-09, -5.0000e-01]]  , dtype=torch.float64)
 
-x_final = torch.tensor([[1.5, 1.5 , 0]] , dtype=torch.float64 )
+x_final = torch.tensor([[0, 0 , 0]] , dtype=torch.float64 )
 # A = np.identity(state_size)
 
 Q = np.array([[1.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 0.1]])
@@ -403,18 +319,8 @@ R = torch.tensor(R, dtype=torch.float64)
 
 model = MyModel(A=None, B=None  , Q = Q , R = R, T = T , horizon = horizon , state_shape=state_size , control_shape=control_size) 
 
-# for i in range(2):
-# Jb1 = model.getJB()
-# Jb2 = model.getJB().t()
+model.train()
 
-# JB = Jb1 @ Jb2
-# print("Jb = " , JB)
-# model.getJB(1)
-model.GetProblem()
-model.getGradient()
-# model.getContrain(1)
-# model.getHessian()
-# model.debug()
-# exit()
-# model.train()
-
+# model.GetProblem()
+# model.getGradient()
+# model.constrain(0)
