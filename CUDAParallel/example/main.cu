@@ -16,11 +16,13 @@ int main()
     final_state << 1.5, 1.5, 0;
     state init_state;
     init_state << 0 , 0 , 0.0;
+    control init_control;
+    init_control<<0 , 0;
 
     for (int i = 0; i < horizon; i++)
     {
         cache[i].state1<<init_state;
-        cache[i].control.setZero();
+        cache[i].control<<init_control;
         cache[i].initial_state<< init_state;
         cache[i].final_state << final_state;
         cache[i].Q = Qtemp;

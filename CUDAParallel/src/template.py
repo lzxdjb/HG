@@ -37,12 +37,14 @@ class MyModel(nn.Module):
 ###### real number:
 
         self.states = [x_initial] + [torch.full((1 ,self.state_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
-        # self.check_shapes(self.states)
+        self.check_shapes(self.states)
 
         self.controls = [torch.full( (1 ,self.control_shape), 0 ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
-        # self.check_shapes(self.controls)
 
-        # self.lambda_ = torch.zeros((self.horizon * self.state_shape , 1) , dtype = torch.float64)
+        # self.states = [x_initial] + [torch.tensor([[1 , 0 , 0]],  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+
+        # self.controls = [torch.tensor([[1 , 0]] ,  dtype = torch.float64 ,  requires_grad=True) for i in range(self.horizon)]
+    
 ######
         
     def check_shapes(self , states):

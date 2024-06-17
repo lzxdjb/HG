@@ -116,27 +116,24 @@ __global__ void solve_kernel(TinyCache *solver_gpu)
             norm = varible2.segment(0, ControlShape + StateShape).norm();
             // }
 
-            printf("norm %f %d\n", norm, norm < double(100));
+            printf("norm %f \n", norm);
             printf("pivot =  %d\n", pivot);
             printf("idx %d \n", idx);
 
+    
             if (norm < 1e-8 && horizon - 1 == idx)
             {
 
                 printf("@@@@@@@@@@@@@@ idx = %d , pivot = %d \n", idx, pivot);
                 for (int i = pivot + 1; i < horizon; i++)
                 {
-                    printf("tempoo %f \n", solver_gpu[i].initial_state.row(0)[0]);
-                    printf("tempoo %f \n", solver_gpu[i].initial_state.row(1)[0]);
-                    printf("tempoo %f \n", solver_gpu[i].initial_state.row(2)[0]);
+                  
 
                     solver_gpu[i].initial_state.segment(0 , StateShape) = solver_gpu[pivot].state1.segment(0 , StateShape);
 
-                    printf("temp1 %f \n", solver_gpu[i].initial_state.row(0)[0]);
-                    printf("temp2 %f \n", solver_gpu[i].initial_state.row(1)[0]);
-                    printf("temp3 %f \n", solver_gpu[i].initial_state.row(2)[0]);
+               
                 }
-                printf("&&&&&&&&&&&&&&&& idx = %d, pivot = %d \n", idx, pivot);
+            
                 pivot++;
             }
             __syncthreads();
@@ -149,8 +146,6 @@ __global__ void solve_kernel(TinyCache *solver_gpu)
                 break;
             }
 
-            // break;
-            // printf("asdfasdfasdfasdf");
         }
 
         solver_gpu->equality = equality;

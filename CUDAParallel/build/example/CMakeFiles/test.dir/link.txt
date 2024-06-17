@@ -1,0 +1,1 @@
+/usr/bin/g++ @CMakeFiles/test.dir/objects1 -o test @CMakeFiles/test.dir/linkLibs.rsp -L"/usr/local/cuda-11.8/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda-11.8/targets/x86_64-linux/lib"

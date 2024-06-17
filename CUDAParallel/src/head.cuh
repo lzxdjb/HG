@@ -80,9 +80,9 @@ __device__ static inline Hessian GetHessian(QCost Q, RCost R)
 __device__ static inline equality GetEquality(state state1, control control, state initial)
 {
     equality temp;
-    temp[0] = (state1[0] - cos(initial[2]) * control[0]) * T;
-    temp[1] = (state1[1] - sin(initial[2]) * control[0]) * T;
-    temp[2] = (state1[2] - control[1]) * T;
+    temp[0] = (state1[0] -initial[0]-  cos(initial[2]) * control[0]) * T;
+    temp[1] = (state1[1] - initial[1]-sin(initial[2]) * control[0]) * T;
+    temp[2] = (state1[2] -initial[2]- control[1]) * T;
 
     return temp;
 }

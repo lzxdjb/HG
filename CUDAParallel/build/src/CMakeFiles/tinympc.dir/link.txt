@@ -1,0 +1,2 @@
+/usr/bin/ar qc libtinympc.a CMakeFiles/tinympc.dir/head.cu.o
+/usr/bin/ranlib libtinympc.a
