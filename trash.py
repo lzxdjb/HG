@@ -20,7 +20,7 @@ def newton_method(f, df, x0, tol=1e-6, max_iter=100):
             break
         x = x_new
     return x, steps
-
+# sdsd
 # Initial guess
 x0 = 3.0
 
