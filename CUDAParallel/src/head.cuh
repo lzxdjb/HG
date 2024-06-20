@@ -139,7 +139,7 @@ __device__ static inline void RowElimination(FinalMatrix *finalmatrix, FinalMatr
 
     finalmatrix->row(desrow) -= finalmatrix->row(startrow) * index;
 
-    L->row(desrow)[descolumn] = L->row(startrow)[startcolumn] * index;
+    L->row(desrow)[descolumn] += L->row(startrow)[startcolumn] * index;
 }
 
 __device__ static inline void solve1(FinalMatrix *L, FinalMatrix *finalMatrix, FinalColumn *varible1, FinalColumn *varible2, FinalColumn *finalColumn)

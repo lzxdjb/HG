@@ -1,9 +1,0 @@
-/media/lzx/lzx/hypergraph/CUDAParallel/build/CMakeFiles/edit_cache.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/CMakeFiles/rebuild_cache.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/src/CMakeFiles/tinympc.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/src/CMakeFiles/edit_cache.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/src/CMakeFiles/rebuild_cache.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/example/CMakeFiles/main.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/example/CMakeFiles/test.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/example/CMakeFiles/edit_cache.dir
-/media/lzx/lzx/hypergraph/CUDAParallel/build/example/CMakeFiles/rebuild_cache.dir
