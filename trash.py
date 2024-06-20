@@ -1,98 +1,76 @@
-import torch
-import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
+# Define the quadratic function and its derivative
+def f(x):
+    return x**2 - 4
 
-class MPC(nn.Module):
-    def __init__(self ,  A , B,  Q , R , T , horizon , state_shape , control_shape ):
-        super(MPC, self).__init__()
-        self.A = A
-        self.B = B
-        self.Q = Q
-        self.R = R
-        self.T = T
-        self.horizon = horizon
+def df(x):
+    return 2 * x
 
-        self.x_initial = torch.tensor([[0.0, 0.0, 0.0]])
-        self.x_final = torch.tensor([[2., 2., 2.]])
+# Implement Newton's method with steps storage for animation
+def newton_method(f, df, x0, tol=1e-6, max_iter=100):
+    x = x0
+    steps = [x]  # Store initial guess for visualization
+    for _ in range(max_iter):
+        x_new = x - f(x) / df(x)
+        steps.append(x_new)  # Store new guess for visualization
+        if abs(f(x) / df(x)) < tol:
+            break
+        x = x_new
+    return x, steps
 
-        self.states = nn.ParameterList([nn.Parameter(torch.full((1, state_shape), 1.0 + i)) for i in range(self.horizon)])
-        self.controls = nn.ParameterList([nn.Parameter(torch.full((1, control_shape), 1.0 + i + self.horizon)) for i in range(self.horizon)])
-        self.lambda_ = nn.ParameterList([nn.Parameter(torch.full((1, state_shape), 1.0 + i + self.horizon * 2)) for i in range(self.horizon)])
+# Initial guess
+x0 = 3.0
 
-    def forward1(self):
-        total_cost = 0
-        for k in range(self.horizon):
-            states_k = self.x_initial if k == 0 else self.states[k - 1]
-            states_kp1 = self.states[k]
-            total_cost += (states_kp1 - self.x_final) @ self.Q @ (states_kp1 - self.x_final).t() + self.controls[k] @ self.R @ self.controls[k].t()
-            total_cost += self.lambda_[k] @ (states_kp1.t() - self.A @ states_k.t() - self.B @ self.controls[k].t())
-        return total_cost * total_cost
+# Apply Newton's method
+root, steps = newton_method(f, df, x0)
 
-state_size = 3
-control_size = 2
+# Create a figure and axis
+fig, ax = plt.subplots(figsize=(10, 6))
 
-A = torch.tensor(np.identity(state_size, dtype=np.float32))
-B = torch.tensor([[-1, 0], [-1, 0], [0, -1]], dtype=torch.float32)
+# Plot the function
+x_vals = np.linspace(-3, 3, 400)
+y_vals = f(x_vals)
+ax.plot(x_vals, y_vals, label='$f(x) = x^2 - 4$')
 
-Q = torch.tensor(np.identity(state_size, dtype=np.float32))
-R = torch.tensor(np.identity(control_size, dtype=np.float32))
+# Initial plot setup
+line, = ax.plot([], [], 'r--', lw=1)
+point, = ax.plot([], [], 'ro')
+text = ax.text(0, 0, '', fontsize=12)
 
-model = MPC(A=A, B=B, Q=Q, R=R, T=0.2, horizon=1, state_shape=state_size, control_shape=control_size)
-optimizer = torch.optim.Adam(model.parameters())
+def init():
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-10, 10)
+    ax.axhline(0, color='black', linewidth=0.5)
+    ax.axvline(0, color='black', linewidth=0.5)
+    ax.set_xlabel('$x$')
+    ax.set_ylabel('$f(x)$')
+    ax.set_title("Newton's Method Visualization for $f(x) = x^2 - 4$")
+    ax.legend()
+    return line, point, text
 
-loss_list = []
+def animate(i):
+    if i < len(steps) - 1:
+        x_k = steps[i]
+        y_k = f(x_k)
+        slope = df(x_k)
+        tangent_line = slope * (x_vals - x_k) + y_k
+        line.set_data(x_vals, tangent_line)
+        point.set_data(x_k, y_k)
+        text.set_position((x_k, y_k))
+        text.set_text(f'$x_{i}$')
+    else:
+        x_final = steps[-1]
+        y_final = f(x_final)
+        point.set_data(x_final, y_final)
+        text.set_position((x_final, y_final))
+        text.set_text(f'$x_{{final}}$')
+    return line, point, text
 
-learning_rate = 0.001
-gradient = []
+# Create animation
+ani = FuncAnimation(fig, animate, frames=len(steps), init_func=init, blit=True, repeat=False)
 
-print("model.states" , model.states)
-exit()
-for i in range(2):
-
-    print("before = " , model.states[1])
-    optimizer.zero_grad()
-    print("after = " , model.states[1])
-
-    total_cost: torch.Tensor = model.forward1()
-    # print(("cost = " , total_cost))
-    # exit()
-    total_cost.backward()
-    print("total_cost = " , total_cost)
-    for i in range(model.horizon):
-        model.states[i + 1] -= learning_rate * model.states[i + 1].grad
-        # loss += torch.norm(model.states[i + 1].grad)
-        temp = model.states[i + 1].grad.clone()
-        gradient.append(temp)
-        # print("temp1 = " , temp)
-        # print("model.states[i + 1] = " , model.states[i + 1]) 
-        model.states[i + 1].grad.zero_()
-        # print("temp2 = " , temp)
-
-    for i in range(model.horizon):
-        model.controls[i] -= learning_rate * model.controls[i ].grad
-        # loss += torch.norm(model.controls[i ].grad)
-        temp = model.controls[i].grad.clone()
-        gradient.append(temp)
-        model.controls[i].grad.zero_()       
-    for i in range(model.horizon):
-        model.lambda_[i] -= learning_rate * model.lambda_[i].grad
-        # loss += torch.norm( model.lambda_[i].grad)
-        temp = model.lambda_[i].grad.clone()     
-        gradient.append(model.lambda_[i].grad)
-        model.lambda_[i].grad.zero_()
-    # optimizer.step()
-
-    with torch.no_grad():
-        loss_list.append(total_cost.detach().cpu().item())
-        if len(loss_list) > 1000:
-            loss_list = loss_list[1:]
-        if i % 100 == 0:
-            plt.clf()
-            plt.plot(loss_list, label='Loss')
-            plt.xlabel('Iteration')
-            plt.ylabel('Loss')
-            plt.title('Loss over iterations')
-            plt.legend()
-            plt.pause(0.1)
+# Show animation
+plt.show()
