@@ -210,8 +210,7 @@ class MyModel(nn.Module):
     
             
             jj1 = self.controls[i].detach().clone()
-            jj1 -= learing_rate * temp[: , self.state_shape 
-            : self.state_shape + self.control_shape]
+            jj1 -= learing_rate * temp[: , self.state_shape : self.state_shape + self.control_shape]
             self.controls[i].data = jj1
             
 

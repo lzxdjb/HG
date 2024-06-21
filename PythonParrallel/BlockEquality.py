@@ -3,6 +3,8 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 
+from Tools import Tools
+
 class MyModel(nn.Module):
     def __init__(self ,  A , B,  Q , R , T , horizon , state_shape , control_shape ):
         super(MyModel, self).__init__()
@@ -201,17 +203,7 @@ class MyModel(nn.Module):
         # print("equality = " , big_tensor)
         return big_tensor
     
-    def check_below_diagonal(self , matrix):
-        num_rows = len(matrix)
-        num_cols = len(matrix[0]) if num_rows > 0 else 0
-    
-        for i in range(num_rows):
-            for j in range(num_cols):
-                if i > j and matrix[i][j] >= 1e-12:
-                    print("position: i = ", i , "j = " , j)
-                    print("value = " , matrix[i][j])
-                    return False
-        return True
+
 
     def update(self , vector , learing_rate):
 
@@ -227,22 +219,15 @@ class MyModel(nn.Module):
             jj += learing_rate * temp[i * (self.state_shape + self.control_shape) + self.state_shape : (i + 1) * (self.state_shape + self.control_shape) , :].t()
             self.controls[i] = jj
 
-
+   
     def eliminate(self ,startrow , startcolumn , desrow , descolumn):
 
         index = 1 / self.final_matrix[startrow][startcolumn] * self.final_matrix[desrow][descolumn]
 
         self.final_matrix[desrow] -= self.final_matrix[startrow] * index
         
-        self.Lower[desrow] += self.Lower[startrow] * index
+        self.Lower[desrow][descolumn] += self.Lower[startrow][startcolumn] * index
 
-    def EliminateForSecondLevel(self ,startrow , startcolumn , desrow , descolumn):
-
-        index = 1 / self.final_matrix[startrow][startcolumn] * self.final_matrix[desrow][descolumn]
-
-        self.final_matrix[desrow] -= self.final_matrix[startrow] * index
-        
-        self.Lower[desrow] += self.Lower[startrow] * index
 
     def EliminateBlock(self , i):
         base = (self.horizon) * (self.state_shape + self.control_shape) + i * self.state_shape
@@ -357,14 +342,16 @@ class MyModel(nn.Module):
             descolumn = startcolumn
             self.eliminate(startrow , startcolumn , desrow , descolumn)
 
-    def KillAndSuicide(self , matrix):
+    def Suicide(self , matrix):
         
         for i in range(matrix.sizes(0)):
-            for j in range():
+            for j in range(matrix.size(1)):
+                self.eliminate(i , i)
 
 
     def SecondPhase(self):
-        
+        for i in range(self.SecondMatrix.size(0)):
+            self.Suicide(self.SecondMatrix[self.state_shape * i : self.state_shape * (i + 1), self.state_shape * i : self.state_shape * (i + 1)])
 
 
     def GetFinalSolution(self):
@@ -383,16 +370,33 @@ class MyModel(nn.Module):
 
         self.Lower = torch.eye(self.final_matrix.size(0), dtype=torch.float64)
 
+        L, U = Tools.lu_no_pivoting(self.final_matrix)
+
+        # print("right L = " , L[: , :self.horizon * (self.state_shape + self.control_shape)])
+
+        # print("right R = " , U[: , :self.horizon * (self.state_shape + self.control_shape)])
+
+        # print("final_matrix = " , self.final_matrix)
+
         for i in range(horizon):
             self.EliminateBlock(i)
 
+        # Tools.compare_matrices(U[: , :self.horizon * (self.state_shape + self.control_shape)] ,self.final_matrix[: , :self.horizon * (self.state_shape + self.control_shape)] )
+
+        # Tools.compare_matrices(L[: , :self.horizon * (self.state_shape + self.control_shape)] , self.Lower[: , :self.horizon * (self.state_shape + self.control_shape)] )
+
+
         self.SecondMatrix = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ]
+
+        
 
         self.SecondLower =  self.Lower[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ]
 
+        # print("self.SecondMatrix = " , self.SecondMatrix)
+        # print("self.SecondLower = " , self.SecondLower)
+        exit()
 
-        
-        
+
 
         # print("self.Lower = " , self.Lower[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) :])
             
