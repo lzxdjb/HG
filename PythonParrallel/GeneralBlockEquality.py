@@ -253,21 +253,15 @@ class MyModel(nn.Module):
             self.final_matrix[ i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)  , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].inverse()
 
     def FirstPhaseGeneralAddUpperBlock(self , fix):
-            
-            LowerRowBase = self.horizon * (self.state_shape + self.control_shape)
+          
+        LowerRowBase = self.horizon * (self.state_shape + self.control_shape)
 
-            UpperRowBase = LowerRowBase
-            UpperColumnBase = self.horizon * (self.state_shape + self.control_shape)
+        UpperRowBase = LowerRowBase
+        UpperColumnBase = self.horizon * (self.state_shape + self.control_shape)
+        
+        if fix != self.horizon - 1:
             
             i = fix
-            
-            fixLower1 =  self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)]
-
-            column = i + 1
-
-            fixLower2 =  self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , column * (self.state_shape + self.control_shape) : (column + 1) * (self.state_shape + self.control_shape)]
-
-            i = 
 
             upper1 = self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].t()
 
@@ -275,17 +269,16 @@ class MyModel(nn.Module):
 
             upper2 = self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].t()
 
-            i = j
+            i = fix
 
-            self.final_matrix[UpperRowBase + i * (self.state_shape) : (i + 1) * (self.state_shape)  , UpperColumnBase + j * (self.state_shape ) : UpperColumnBase + (j + 1) * (self.state_shape)] -= fixLower @ upper1
+            fixLower1 =  - self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] @ \
+            self.final_matrix[ i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)  , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].inverse()
 
+            j = i
             i = i + 1
 
-            self.final_matrix[UpperRowBase + i * (self.state_shape) : (i + 1) * (self.state_shape)  , UpperColumnBase + j * (self.state_shape ) : UpperColumnBase + (j + 1) * (self.state_shape)] -= fixLower @ upper2
-
-            # i = i + 1
-
-            j = j + 1
+            fixLower2 =  - self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , j * (self.state_shape + self.control_shape) : (j + 1) * (self.state_shape + self.control_shape)] @ \
+            self.final_matrix[ j * (self.state_shape + self.control_shape) : (j + 1) * (self.state_shape + self.control_shape)  , j * (self.state_shape + self.control_shape) : (j + 1) * (self.state_shape + self.control_shape)].inverse()
 
             # self.final_matrix[UpperRowBase + i * (self.state_shape) : (i + 1) * (self.state_shape)  , UpperColumnBase + i * (self.state_shape ) : UpperColumnBase + (i + 1) * (self.state_shape)] -= \
             # self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] @ \

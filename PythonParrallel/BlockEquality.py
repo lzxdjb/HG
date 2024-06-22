@@ -418,23 +418,31 @@ class MyModel(nn.Module):
         
         TestVector = self.getfinalcolumn()
 
-        TestVector1 = TestVector[self.horizon * (self.state_shape + self.control_shape) : , : ]
+        TestVector1 = TestVector[: self.horizon * (self.state_shape + self.control_shape)  , : ] #### h(x)
 
-        TestVector2 = TestVector[ : self.horizon * (self.state_shape + self.control_shape) , : ]
+        TestVector2 = TestVector[self.horizon * (self.state_shape + self.control_shape) : , : ]
         # print("TestMatrix  = " , TestVector.shape )
 
-        Testsolution = TestMatrix.inverse() @ TestVector1
-        # print("solution = " , Testsolution)
+        varible = self.Lower[ : self.horizon * (self.state_shape + self.control_shape) ,  : self.horizon * (self.state_shape + self.control_shape)]
+
+        SolutionPhase1Varible = varible.inverse() @ TestVector1
+
+        temp = self.jacobian @ SolutionPhase1Varible
+
+        SolutionPhase1Dual = TestVector2 - temp
+
+        dual = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) : , self.horizon * (self.state_shape + self.control_shape) : ]
+
+        SolutionPhase2Dual = dual.inverse() @ SolutionPhase1Dual
+
+        temp = self.jacobian.t() @ SolutionPhase2Dual
+
+        SolutionPhase2Varible = SolutionPhase1Varible - temp
 
         
-        temp =  self.jacobian.t() @ Testsolution
-        # print("temp = " , temp)
+        print(SolutionPhase2Varible)
 
-        TestAnswer = TestVector2 - temp
-        print("Hessian = " , self.getHessian())
-        print("TestAnswer = " ,TestAnswer)
-
-        return self.final_matrix 
+        # return self.final_matrix 
 
 
 
