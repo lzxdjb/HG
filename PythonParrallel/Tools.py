@@ -43,4 +43,19 @@ class Tools():
         else:
             print("Matrices are equal.")
 
+    def LUDebug(final_matrix):
+        L, U = Tools.lu_no_pivoting(final_matrix)
+
+        # print("right L = " , L[: , :self.horizon * (self.state_shape + self.control_shape)])
+
+        # print("right R = " , U[: , :self.horizon * (self.state_shape + self.control_shape)])
+
+        # print("final_matrix = " , self.final_matrix)
+
+
+        # Tools.compare_matrices(U[: , :self.horizon * (self.state_shape + self.control_shape)] ,self.final_matrix[: , :self.horizon * (self.state_shape + self.control_shape)] )
+
+        # Tools.compare_matrices(L[: , :self.horizon * (self.state_shape + self.control_shape)] , self.Lower[: , :self.horizon * (self.state_shape + self.control_shape)] )
+
+
     

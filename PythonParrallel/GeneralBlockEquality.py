@@ -228,145 +228,77 @@ class MyModel(nn.Module):
         
         self.Lower[desrow][descolumn] += self.Lower[startrow][startcolumn] * index
 
+    def FirstPhaseGeneralEliminateLowerBlock(self , k):
+        LowerRowBase = self.horizon * (self.state_shape + self.control_shape)
 
-    def EliminateBlock(self , i):
-        base = (self.horizon) * (self.state_shape + self.control_shape) + i * self.state_shape
+        i = k
 
         if i != self.horizon - 1:
+            self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] = \
+            self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] @ \
+            self.final_matrix[ i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)  , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].inverse()
 
-            j = 0
-            startrow = i * (self.state_shape + self.control_shape) + j
+            j = i  ## for column
+            i = i + 1
 
-            startcolumn = startrow
+            self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , j * (self.state_shape + self.control_shape) : (j + 1) * (self.state_shape + self.control_shape)] = \
+            self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , j * (self.state_shape + self.control_shape) : (j + 1) * (self.state_shape + self.control_shape)] @ \
+            self.final_matrix[ j * (self.state_shape + self.control_shape) : (j + 1) * (self.state_shape + self.control_shape)  , j * (self.state_shape + self.control_shape) : (j + 1) * (self.state_shape + self.control_shape)].inverse()
 
-            desrow = base + j
-            descolumn = startcolumn
 
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-            self.eliminate(startrow , startcolumn , desrow + self.state_shape , descolumn)
-
-            j = 1
-            startrow = i * (self.state_shape + self.control_shape) + j
-
-            startcolumn = startrow
-
-            desrow = base + j
-            descolumn = startcolumn
-
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-            self.eliminate(startrow , startcolumn , desrow + self.state_shape , descolumn)
-
-            j = 2
-
-            startrow = i * (self.state_shape + self.control_shape) + j
-
-            startcolumn = startrow
-            desrow = base + j
-            descolumn = startcolumn
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            for k in range(1 , self.state_shape + 1):
-                desrow = base + j + k
-                self.eliminate(startrow , startcolumn , desrow , descolumn)
-            
-            j = 3
-
-            startrow = i * (self.state_shape + self.control_shape) + j
-
-            startcolumn = startrow
-            desrow = base
-            descolumn = startcolumn
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            desrow += 1
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            j = 4
-            
-            startrow = i * (self.state_shape + self.control_shape) + j
-            startcolumn = startrow
-
-            desrow = base + self.state_shape - 1
-            descolumn = startcolumn
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-        else:
-
-            j = 0
-            startrow = i * (self.state_shape + self.control_shape) + j
-
-            startcolumn = startrow
-
-            desrow = base + j
-            descolumn = startcolumn
-
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            j = 1
-            startrow = i * (self.state_shape + self.control_shape) + j
-
-            startcolumn = startrow
-
-            desrow = base + j
-            descolumn = startcolumn
-
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            j = 2
-
-            startrow = i * (self.state_shape + self.control_shape) + j
-
-            startcolumn = startrow
-            desrow = base + j
-            descolumn = startcolumn
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            j = 3
-
-            startrow = i * (self.state_shape + self.control_shape) + j
-
-            startcolumn = startrow
-            desrow = base
-            descolumn = startcolumn
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            desrow += 1
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-            j = 4
-            
-            startrow = i * (self.state_shape + self.control_shape) + j
-            startcolumn = startrow
-
-            desrow = base + 2 
-            descolumn = startcolumn
-            self.eliminate(startrow , startcolumn , desrow , descolumn)
-
-    def SecondEliminate(self ,startrow , startcolumn , desrow , descolumn , upper , lower):
-
-        index = 1 / upper[startrow][startcolumn] * upper[desrow][descolumn]
-
-        upper[desrow] -= upper[startrow] * index
         
-        lower[desrow][descolumn] += lower[startrow][startcolumn] * index
+        else:
+            self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] = \
+            self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] @ \
+            self.final_matrix[ i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)  , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].inverse()
 
-    def SecondPhaseEliminateBlock(self , k):
+    def FirstPhaseGeneralAddUpperBlock(self , fix):
+            
+            LowerRowBase = self.horizon * (self.state_shape + self.control_shape)
 
-        base = k * self.state_shape
+            UpperRowBase = LowerRowBase
+            UpperColumnBase = self.horizon * (self.state_shape + self.control_shape)
+            
+            i = fix
+            
+            fixLower1 =  self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)]
 
-        for i in range(self.state_shape):
-            for j in range(i + 1 , self.state_shape):
-                self.SecondEliminate(i , i , j , i ,
-                self.SecondMatrix[k * self.state_shape : (k + 1) * self.state_shape , k * self.state_shape : (k + 1) * self.state_shape] , 
+            column = i + 1
 
-                self.SecondLower[k * self.state_shape : (k + 1) * self.state_shape , k * self.state_shape : (k + 1) * self.state_shape])
-        print("self.secondMatrix = " , self.SecondMatrix)
-        exit()
+            fixLower2 =  self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , column * (self.state_shape + self.control_shape) : (column + 1) * (self.state_shape + self.control_shape)]
+
+            i = 
+
+            upper1 = self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].t()
+
+            i = i + 1
+
+            upper2 = self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].t()
+
+            i = j
+
+            self.final_matrix[UpperRowBase + i * (self.state_shape) : (i + 1) * (self.state_shape)  , UpperColumnBase + j * (self.state_shape ) : UpperColumnBase + (j + 1) * (self.state_shape)] -= fixLower @ upper1
+
+            i = i + 1
+
+            self.final_matrix[UpperRowBase + i * (self.state_shape) : (i + 1) * (self.state_shape)  , UpperColumnBase + j * (self.state_shape ) : UpperColumnBase + (j + 1) * (self.state_shape)] -= fixLower @ upper2
+
+            # i = i + 1
+
+            j = j + 1
+
+            # self.final_matrix[UpperRowBase + i * (self.state_shape) : (i + 1) * (self.state_shape)  , UpperColumnBase + i * (self.state_shape ) : UpperColumnBase + (i + 1) * (self.state_shape)] -= \
+            # self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] @ \
+            # self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)].t() 
+
+            # self.final_matrix[UpperRowBase + i * (self.state_shape) : (i + 1) * (self.state_shape)  , UpperColumnBase + (i + 1) * (self.state_shape ) : UpperColumnBase + (i + 2) * (self.state_shape)] -= \
+            # self.Lower[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , i * (self.state_shape + self.control_shape) : (i + 1) * (self.state_shape + self.control_shape)] @ \
+            # self.final_matrix[LowerRowBase + i * self.state_shape : LowerRowBase + (i + 1) * self.state_shape , (i + 1) * (self.state_shape + self.control_shape) : (i + 2) * (self.state_shape + self.control_shape)].t()  
 
 
-    def SecondPhase(self):
-        for i in range(self.horizon):
-            self.SecondPhaseEliminateBlock(i)
+
+        
+
 
 
     def GetFinalSolution(self):
@@ -386,10 +318,14 @@ class MyModel(nn.Module):
         self.Lower = torch.eye(self.final_matrix.size(0), dtype=torch.float64)
 
         L , U = Tools.lu_no_pivoting(self.final_matrix)
+        
 
        
         for i in range(horizon):
-            self.EliminateBlock(i)
+            self.FirstPhaseGeneralEliminateLowerBlock(i)
+        for i in range(horizon):
+            self.FirstPhaseGeneralAddUpperBlock(i)
+        Tools.compare_matrices(L[ : , : self.horizon * (self.state_shape + self.control_shape)] , self.Lower[ : , : self.horizon * (self.state_shape + self.control_shape)] ), 
 
 
         # self.SecondMatrix = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ]
@@ -400,8 +336,7 @@ class MyModel(nn.Module):
         # print("self.SecondMatrix = " , self.SecondMatrix)
         # print("self.SecondLower = " , self.SecondLower)
         
-        # self.SecondPhase()
-        # exit()
+        exit()
 
 
 
@@ -409,30 +344,22 @@ class MyModel(nn.Module):
             
           
 
+        # print("after final_matrix 1 = \n" , self.final_matrix[: ,  :self.horizon * (self.state_shape + self.control_shape)])
+
+        # print("check = " , self.check_below_diagonal(self.final_matrix[: ,  :self.horizon * (self.state_shape + self.control_shape)]))
+
+        # print("after Lower = \n" , self.Lower)
+        # exit()
         TestMatrix = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ]
 
-        # Tools.compare_matrices(U[ : , :self.horizon * (self.state_shape + self.control_shape) ] , self.final_matrix[ : , :self.horizon * (self.state_shape + self.control_shape) ])
-
-        
         # print("TestMatrix  = " , TestMatrix )
         
         TestVector = self.getfinalcolumn()
-
-        TestVector1 = TestVector[self.horizon * (self.state_shape + self.control_shape) : , : ]
-
-        TestVector2 = TestVector[ : self.horizon * (self.state_shape + self.control_shape) , : ]
+        TestVector = TestVector[self.horizon * (self.state_shape + self.control_shape) : , : ]
         # print("TestMatrix  = " , TestVector.shape )
 
-        Testsolution = TestMatrix.inverse() @ TestVector1
-        # print("solution = " , Testsolution)
-
-        
-        temp =  self.jacobian.t() @ Testsolution
-        # print("temp = " , temp)
-
-        TestAnswer = TestVector2 - temp
-        print("Hessian = " , self.getHessian())
-        print("TestAnswer = " ,TestAnswer)
+        solution = TestMatrix.inverse() @ TestVector
+        print("solution = " , solution)
 
         return self.final_matrix 
 
@@ -494,6 +421,7 @@ class MyModel(nn.Module):
             while 1:
             # for i in range(1):
                 A = self.getfinalmatrix()
+                self.GetFinalSolution()
                 # print("A = " , A)
                 # djb = A.clone()
                 # det = np.linalg.det(djb.detach())
@@ -511,9 +439,7 @@ class MyModel(nn.Module):
                 # print()
 
                 vector = A @ B
-                print("vector = " , vector[ : self.horizon * (self.state_shape + self.control_shape)  , : ])
-                self.GetFinalSolution()
-
+                print("vector = " , vector[ self.horizon * (self.state_shape + self.control_shape) : , : ])
                 exit()
                 # exit()
                 self.update(vector ,learning_rate)
@@ -583,14 +509,10 @@ x_initial = torch.tensor([[0.0, 0.0 ,0.0]]  , dtype=torch.float64)
 x_final = torch.tensor([[1.5, 1.5 , 0]] , dtype=torch.float64 )
 # A = np.identity(state_size)
 
-# Q = np.array([[1.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 0.1]])
-# R = np.array([[0.5, 0.0], [0.0, 0.05]])
-
-Q = np.array([[0.5, 0.0, 0.0], [0.0, 0.5, 0.0], [0.0, 0.0, 0.5]])
-R = np.array([[0.5, 0.0], [0.0, 0.5]])
-
-
-
+Q = np.array([[1.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 0.1]])
+R = np.array([[0.5, 0.0], [0.0, 0.05]])
+# Convert the NumPy arrays to PyTorch tensors
+# A = torch.tensor(A, dtype=torch.float64)
 Q = torch.tensor(Q, dtype=torch.float64)
 R = torch.tensor(R, dtype=torch.float64)
 
