@@ -1,6 +1,6 @@
 #include "head.cuh"
 
-void debug(TinyCache *solvergpu)
+void debug(TinyCache *solvergpu , SharedMatrix * dshared)
 {
     for (int i = 0; i < horizon; i++)
     {
@@ -12,13 +12,17 @@ void debug(TinyCache *solvergpu)
 
         // std::cout << "equality = " << solvergpu[i].equality << std::endl;
 
-        // std::cout << "JB1 = " << solvergpu[i].JB1 << std::endl;
+        // std::cout << "JB1 = \n" << solvergpu[i].JB1 << std::endl;
 
-        // std::cout << "JB2 = " << solvergpu[i].JB2 << std::endl;
+        // std::cout << "JB2 = \n" << solvergpu[i].JB2 << std::endl;
 
-        std::cout << "LowerLeftDown = \n" << solvergpu[i].LowerLeftDown1 << std::endl;
+        // std::cout << "LowerLeftDown = \n" << solvergpu[i].LowerLeftDown1 << std::endl;
 
-        std::cout << "LowerLeftDown = \n" << solvergpu[i].LowerLeftDown2 << std::endl;
+        // std::cout << "LowerLeftDown = \n" << solvergpu[i].LowerLeftDown2 << std::endl;
+
+        // std::cout << "debug = \n" << solvergpu[i].debug << std::endl;
+
+        // std::cout << "shared = \n" << &shared << std::endl;
        
 
         // std::cout << "final_state = " << solvergpu[i].final_state << std::endl;
@@ -37,7 +41,7 @@ void debug(TinyCache *solvergpu)
     }
 }
 
-__global__ void solve_kernel(TinyCache *solver_gpu)
+__global__ void solve_kernel(TinyCache *solver_gpu , SharedMatrix * dshared)
 {
 
     int idx = threadIdx.x;
@@ -126,10 +130,31 @@ __global__ void solve_kernel(TinyCache *solver_gpu)
             
             LowerLeftDown2 = JB2.lazyProduct(PsedoInverse(Hessian));
 
-            temp temp1;
-            temp1 = - LowerLeftDown1.lazyProduct(JB1.transpose());
+        /////////
+            temp temp1 , temp2 , temp3 , temp4;
 
-            mycopy(&shared , temp1 , idx);
+
+            if(idx != horizon - 1)
+            {
+
+            temp1 = - LowerLeftDown1.lazyProduct(JB1.transpose());
+            temp2 = - LowerLeftDown1.lazyProduct(JB2.transpose());
+             temp3 = - LowerLeftDown2.lazyProduct(JB1.transpose());
+            temp4 = - LowerLeftDown2.lazyProduct(JB2.transpose());
+
+            mycopy(&shared , temp1 , temp2 , temp3 , temp4, idx);
+
+              
+            }
+            else{
+                temp1 = - LowerLeftDown1.lazyProduct(JB1.transpose());
+                mycopy2(&shared , temp1 , idx);
+            }
+
+            
+
+
+
             
          
 
@@ -195,35 +220,59 @@ __global__ void solve_kernel(TinyCache *solver_gpu)
             // }
         }
 
+        __syncthreads();
         solver_gpu[idx].equality = equality;
         solver_gpu[idx].JB1 = JB1;
         solver_gpu[idx].JB2 = JB2;
         solver_gpu[idx].Hessian = Hessian;
         solver_gpu[idx].gradient = Allgradient;
-        solver_gpu[idx].FinalMatrix = finalMatrix;
-        solver_gpu[idx].FinalColumn = finalColumn;
+        // solver_gpu[idx].FinalMatrix = finalMatrix;
+        // solver_gpu[idx].FinalColumn = finalColumn;
 
-        solver_gpu[idx].L = L;
-        solver_gpu[idx].varible1 = varible1;
-        solver_gpu[idx].varible2 = varible2;
+        // solver_gpu[idx].L = L;
+        // solver_gpu[idx].varible1 = varible1;
+        // solver_gpu[idx].varible2 = varible2;
         solver_gpu[idx].LowerLeftDown1 = LowerLeftDown1; 
 
-        solver_gpu[idx].LowerLeftDown2 = LowerLeftDown2;    
+        solver_gpu[idx].LowerLeftDown2 = LowerLeftDown2;
+
+        for(int i = 0 ; i < horizon * StateShape ; i ++)
+        {
+            for (int j = 0 ; j < horizon * StateShape ; j ++)
+            {
+                dshared->row(i)[j] = shared.row(i)[j];
+            }
+        }
    
     }
 }
 
-void tiny_solve_cuda(TinyCache *cache)
+void tiny_solve_cuda(TinyCache *cache , SharedMatrix * shared)
 {
     TinyCache *solver_gpu;
+
+    SharedMatrix * dshared ; 
+    
 
     // debug(cache);
     checkCudaErrors(cudaMalloc((void **)&solver_gpu, sizeof(TinyCache) * horizon));
     checkCudaErrors(cudaMemcpy(solver_gpu, cache, sizeof(TinyCache) * horizon, cudaMemcpyHostToDevice));
 
-    solve_kernel<<<1, horizon>>>(solver_gpu);
+    /////
+    checkCudaErrors(cudaMalloc((void **)&dshared, sizeof(SharedMatrix)));
+    checkCudaErrors(cudaMemcpy(dshared, shared, sizeof(SharedMatrix), cudaMemcpyHostToDevice));
+
+/////
+
+    solve_kernel<<<1, horizon>>>(solver_gpu , dshared);
     checkCudaErrors(cudaDeviceSynchronize());
 
+
+
     checkCudaErrors(cudaMemcpy(cache, solver_gpu, sizeof(TinyCache) * horizon, cudaMemcpyDeviceToHost));
-    debug(cache);
+
+/////
+    checkCudaErrors(cudaMemcpy(shared, dshared, sizeof(SharedMatrix), cudaMemcpyDeviceToHost));
+
+    debug(cache , dshared);
 }

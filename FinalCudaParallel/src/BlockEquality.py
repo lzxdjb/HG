@@ -384,11 +384,17 @@ class MyModel(nn.Module):
 
         self.Lower = torch.eye(self.final_matrix.size(0), dtype=torch.float64)
 
+        # print("self.final_matrix" , self.final_matrix)
+
+
        
         for i in range(horizon):
             self.EliminateBlock(i)
 
-        print("self.Lower = " ,  self.Lower[self.horizon * (self.state_shape + self.control_shape) :  , : self.horizon * (self.state_shape + self.control_shape)])
+        # print("self.Lower = " ,  self.Lower[self.horizon * (self.state_shape + self.control_shape) :  , : self.horizon * (self.state_shape + self.control_shape)])
+            
+        print("self.Upper = \n " ,  self.final_matrix[self.horizon * (self.state_shape + self.control_shape)  :   , self.horizon * (self.state_shape + self.control_shape): ])
+
 
         TestMatrix = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ]
         
@@ -397,13 +403,20 @@ class MyModel(nn.Module):
         TestVector1 = TestVector[: self.horizon * (self.state_shape + self.control_shape)  , : ] #### h(x)
 
         TestVector2 = TestVector[self.horizon * (self.state_shape + self.control_shape) : , : ]
-        # print("TestMatrix  = " , TestVector.shape )
+      
+
+        # zzz = self.Lower[ : self.horizon * (self.state_shape + self.control_shape) , : self.horizon * (self.state_shape + self.control_shape)]
+        # print("zzz = " , zzz)
 
         varible = self.Lower[ : self.horizon * (self.state_shape + self.control_shape) ,  : self.horizon * (self.state_shape + self.control_shape)]
 
-        SolutionPhase1Varible = varible.inverse() @ TestVector1
+        # SolutionPhase1Varible = varible.inverse() @ TestVector1
 
-        temp = self.jacobian @ SolutionPhase1Varible
+        SolutionPhase1Varible = TestVector1
+
+        LowerLeftDown = self.Lower[self.horizon * (self.state_shape + self.control_shape) : , : self.horizon * (self.state_shape + self.control_shape)]
+
+        temp = LowerLeftDown @ SolutionPhase1Varible
 
         SolutionPhase1Dual = TestVector2 - temp
 
@@ -413,10 +426,14 @@ class MyModel(nn.Module):
 
         temp = self.jacobian.t() @ SolutionPhase2Dual
 
+        UpperRight = self.final_matrix[ : self.horizon * (self.state_shape + self.control_shape) , : self.horizon * (self.state_shape + self.control_shape)]
+
         SolutionPhase2Varible = SolutionPhase1Varible - temp
 
+        SolutionPhase2Varible = UpperRight.inverse() @ SolutionPhase2Varible
+
         
-        print(SolutionPhase2Varible)
+        # print(SolutionPhase2Varible)
 
         # return self.final_matrix 
 

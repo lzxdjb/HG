@@ -36,20 +36,22 @@ using Eigen::Matrix;
     typedef Matrix<tinytype,  ControlShape, ControlShape> RCost;  
 
     typedef Matrix<tinytype,  StateShape * 2 + ControlShape,   StateShape * 2 + ControlShape > FinalMatrix;   
-    typedef Eigen::SparseMatrix<tinytype> SparseFinalMatrix;
-
+ 
     typedef Matrix<tinytype,   StateShape * 2 + ControlShape , 1 > FinalColumn;   
     
 
-    typedef Matrix<tinytype,  horizon, StateShape * 2 + ControlShape > SharedDirection;   
+    typedef Matrix<float,  horizon*StateShape , horizon * StateShape > SharedMatrix;
 
-    typedef Matrix<float,  horizon, StateShape > SharedMatrix; 
+    typedef Matrix<float,  horizon*StateShape , 1 > SharedFirstTemp;  
+
 
     typedef Matrix<tinytype, StateShape, StateShape > temp; 
 
+    typedef Matrix<tinytype, StateShape + ControlShape, 1 > FirstPhaseVarible;
+
+    typedef Matrix<tinytype, StateShape, 1 > FirstPhaseDual;
 
 
-  
 
     typedef struct
     {
@@ -80,6 +82,10 @@ using Eigen::Matrix;
         FinalMatrix FinalMatrix;
         FinalColumn FinalColumn;
 
+        SharedMatrix debug;
+
+        FirstPhaseVarible FirstVarible;
+        FirstPhaseDual FirstDual;
 
        
 

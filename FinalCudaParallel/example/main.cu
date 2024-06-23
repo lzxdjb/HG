@@ -3,8 +3,11 @@ using namespace std;
 
 TinyCache cache[horizon];
 
+SharedMatrix shared;
+
 int main()
 {
+    shared.setZero();
     QCost Qtemp;
     RCost Rtemp;
     Qtemp << 1, 0, 0,
@@ -30,10 +33,11 @@ int main()
         cache[i].final_state << final_state;
         cache[i].Q = Qtemp;
         cache[i].R = Rtemp;
-
-        cache[i].L.Zero();
+        cache[i].debug.setZero();
     }
-    tiny_solve_cuda(cache);
+    tiny_solve_cuda(cache , &shared);
+    std::cout<<"shared = \n "<<shared<<std::endl;
+
 
 
     // std::cout<<"mytest =\n "<<cache[0].L.lazyProduct(cache[0].FinalMatrix) << "\n";

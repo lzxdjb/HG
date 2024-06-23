@@ -23,7 +23,8 @@ void check(T result, char const *const func, const char *const file, int const l
 }
 
 __global__ void solve_kernel(TinyCache *solver_gpu);
-void tiny_solve_cuda(TinyCache *cache);
+
+void tiny_solve_cuda(TinyCache *cache , SharedMatrix *shared);
 
 __device__ static inline double dot_product(double *a, double *b, int number)
 {
@@ -108,7 +109,7 @@ __device__ static inline JB GetJB2(state state1, control control)
 {
     StateJB StateJB;
     StateJB << -1, 0, control[0] * sin(state1[2]),
-        0, -1, control[0] * cos(state1[2]),
+        0, -1, - control[0] * cos(state1[2]),
         0, 0, -1;
     ControlJB ControlJB;
     ControlJB << 0, 0,
@@ -132,7 +133,7 @@ __device__ static inline Hessian PsedoInverse(Hessian hessian)
     return temp;
 }
 
-__device__ static inline void mycopy(SharedMatrix *shared, temp temp1, int idx)
+__device__ static inline void mycopy(SharedMatrix *shared, temp temp1, temp temp2 , temp temp3 , temp temp4 ,  int idx)
 {
     int base = idx * StateShape;
 
@@ -142,10 +143,40 @@ __device__ static inline void mycopy(SharedMatrix *shared, temp temp1, int idx)
         {
             atomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
 
-            if (idx != horizon - 1)
-            {
-                 atomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
-            }
+       
+            atomicAdd(&shared->row(i + base )[j + base + StateShape], temp2.row(i)[j]);
+
+            atomicAdd(&shared->row(i + base + StateShape)[j + base], temp3.row(i)[j]);
+
+            atomicAdd(&shared->row(i + base + StateShape)[j + base + StateShape], temp4.row(i)[j]);
+            
         }
     }
 }
+
+__device__ static inline void mycopy2(SharedMatrix *shared, temp temp1, int idx)
+{
+    int base = idx * StateShape;
+
+    for (int i = 0; i < StateShape; i++)
+    {
+        for (int j = 0; j < StateShape; j++)
+        {
+            atomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);        
+        }
+    }
+}
+
+
+__device__ static inline void DebugCopy(SharedMatrix *shared, SharedMatrix *debug)
+{
+
+    for (int i = 0; i <horizon *  StateShape; i++)
+    {
+        for (int j = 0; j < horizon * StateShape; j++)
+        {
+           debug->row(i)[j] = shared->row(i)[j];
+        }
+    }
+}
+

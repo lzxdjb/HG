@@ -383,13 +383,17 @@ class MyModel(nn.Module):
 
         self.final_matrix = torch.cat((top_block, bottom_block), dim=0)
 
+        # print("self.final_matrix" , self.final_matrix)
+
         self.Lower = torch.eye(self.final_matrix.size(0), dtype=torch.float64)
 
-        L , U = Tools.lu_no_pivoting(self.final_matrix)
+        # L , U = Tools.lu_no_pivoting(self.final_matrix)
 
        
         for i in range(horizon):
             self.EliminateBlock(i)
+
+        # print("self.Upper = \n " ,  self.final_matrix[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ])
 
 
         # self.SecondMatrix = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ]
