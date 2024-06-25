@@ -1,6 +1,23 @@
 #include "head.cuh"
+#include <cusparse.h>
+#include <cusolverSp.h>
 
-void debug(TinyCache *solvergpu, SharedMatrix *dshared)
+__device__ double MyatomicAdd(double *address, double val)
+{
+    unsigned long long int *address_as_ull =
+        (unsigned long long int *)address;
+    unsigned long long int old = *address_as_ull, assumed;
+    do
+    {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+                        __double_as_longlong(val +
+                                             __longlong_as_double(assumed)));
+    } while (assumed != old);
+    return __longlong_as_double(old);
+}
+
+void debug(TinyCache *solvergpu)
 {
     for (int i = 0; i < horizon; i++)
     {
@@ -38,19 +55,17 @@ void debug(TinyCache *solvergpu, SharedMatrix *dshared)
         // std::cout << "varible2 = \n"
         //           << solvergpu[i].varible2 << std::endl;
 
-        // std::cout << "FirstVarible = \n"
-        //   << solvergpu[i].FirstVarible << std::endl;
+        std::cout << "FirstVarible = \n"<< solvergpu[i].FirstVarible << std::endl;
 
-        // std::cout << "FirstDual = \n"
-        //           << solvergpu[i].FirstDual << std::endl;
-        //  std::cout << "soltuion temp = \n"
-        //     << solvergpu[i].solutionTemp << std::endl;
+        // std::cout << "FirstDual = \n" << solvergpu[i].FirstDual << std::endl;
 
-    
+        //  std::cout << "soltuion temp = \n"<< solvergpu[i].solutionTemp << std::endl;
+
+        // std::cout << "convergence = \n"<< solvergpu[i].convergence << std::endl;
     }
 }
 
-__global__ void solve_kernel(TinyCache *solver_gpu, SharedMatrix *dshared , float* values , int* colIndices, int* rowPointers)
+__global__ void solve_kernel(TinyCache *solver_gpu, double *dshared, double *bigDual)
 {
 
     int idx = threadIdx.x;
@@ -97,8 +112,8 @@ __global__ void solve_kernel(TinyCache *solver_gpu, SharedMatrix *dshared , floa
         LowerLeftDown1.setZero();
         LowerLeftDown2.setZero();
 
-        solver_gpu[idx].convergence.topLeftCorner(StateShape, 1) = solver_gpu[idx].state1;
-        solver_gpu[idx].convergence.bottomRightCorner(ControlShape, 1) = solver_gpu[idx].control;
+        // solver_gpu[idx].convergence.topLeftCorner(StateShape, 1) = solver_gpu[idx].state1;
+        // solver_gpu[idx].convergence.bottomRightCorner(ControlShape, 1) = solver_gpu[idx].control;
 
         // while (1)
 
@@ -170,7 +185,7 @@ __global__ void solve_kernel(TinyCache *solver_gpu, SharedMatrix *dshared , floa
             }
 
             //////
-            solver_gpu[idx].FirstVarible = -Allgradient;
+            solver_gpu[idx].FirstVarible = - Allgradient;
 
             __syncthreads();
 
@@ -192,70 +207,11 @@ __global__ void solve_kernel(TinyCache *solver_gpu, SharedMatrix *dshared , floa
 
             solver_gpu[idx].solutionTemp = SolutionTemp;
 
-            solver_gpu[idx].FirstDual = - equality - SolutionTemp;
-
-            // finalMatrix = GetFinalMatrix(Hessian, JB);
-
-            // finalColumn = GetFinalColumn(Allgradient, equality);
-
-            // solver_gpu[idx].OriginalMatrix = finalMatrix;
-            // solver_gpu[idx].OriginalColumn = finalColumn;
-
-            // L = FinalMatrix::Identity(finalMatrix.rows(), finalMatrix.cols());
-
-            // RowElimination(&finalMatrix, &L, 0, 0, 5, 0);
-            // RowElimination(&finalMatrix, &L, 1, 1, 6, 1);
-            // RowElimination(&finalMatrix, &L, 2, 2, 7, 2);
-            // RowElimination(&finalMatrix, &L, 4, 4, 7, 4);
-            // // FinalMatrix tem =  finalMatrix;
-
-            // RowElimination(&finalMatrix, &L, 3, 3, 5, 3);
-            // RowElimination(&finalMatrix, &L, 3, 3, 6, 3);
-            // RowElimination(&finalMatrix, &L, 5, 5, 6, 5);
-
-            // solve1(&L, &finalMatrix, &varible1, &varible2, &finalColumn);
-            // solver_gpu[idx].state1.segment(0, StateShape) += learning_rate * varible2.segment(0, StateShape);
-
-            // solver_gpu[idx].control.segment(0, ControlShape) += learning_rate * varible2.segment(StateShape, ControlShape);
-
-            // // if (pivot == idx)
-            // // {
-            // //     norm = 10;
-            // // }
-            // // else
-
-            // norm = varible2.segment(0, ControlShape + StateShape).norm();
-            // // }
-
-            // printf("norm %f \n", norm);
-            // printf("pivot =  %d\n", pivot);
-            // printf("idx %d \n", idx);
-
-            // if (norm < 1e-8 && horizon - 1 == idx)
-            // {
-
-            //     printf("@@@@@@@@@@@@@@ idx = %d , pivot = %d \n", idx, pivot);
-            //     for (int i = pivot + 1; i < horizon; i++)
-            //     {
-
-            //         solver_gpu[i].initial_state.segment(0 , StateShape) = solver_gpu[pivot].state1.segment(0 , StateShape);
-
-            //     }
-
-            //     pivot++;
-            // }
-            // __syncthreads();
-
-            // // atomicAdd(&pivot, 1);  // Only one thread in the warp updates the pivot
-            // if (pivot - 1 == idx)
-            // {
-            //     printf("jbjbjbjbjbjbj pivot = %d , idx = %d\n", pivot, idx);
-
-            //     break;
-            // }
+            solver_gpu[idx].FirstDual = -equality - SolutionTemp;
         }
 
         __syncthreads();
+
         solver_gpu[idx].equality = equality;
         solver_gpu[idx].JB1 = JB1;
         solver_gpu[idx].JB2 = JB2;
@@ -272,103 +228,133 @@ __global__ void solve_kernel(TinyCache *solver_gpu, SharedMatrix *dshared , floa
         {
             for (int j = 0; j < horizon * StateShape; j++)
             {
-                dshared->row(i)[j] = shared.row(i)[j];
+                dshared[i * horizon * StateShape + j] = shared.row(i)[j];
             }
+        }
+
+        for (int i = 0; i < StateShape; i++)
+        {
+            bigDual[idx * StateShape + i] = solver_gpu[idx].FirstDual[i];
         }
     }
 }
 
-void tiny_solve_cuda(TinyCache *cache, SharedMatrix *shared , TempBigDual * bigDual)
+__global__ void Second_solve_kernel(TinyCache *solver_gpu , double * d_x)
+{
+    int idx = threadIdx.x;
+    if (idx < horizon)
+    {
+       SecondPhaseCopy(&solver_gpu[idx].FirstDual  , d_x , idx);
+
+       convergence SolutionTemp;
+
+            if (idx == horizon - 1)
+            {
+                SolutionTemp =  solver_gpu[idx].JB1.transpose().lazyProduct(solver_gpu[idx].FirstDual);
+            }
+            else
+            {
+                // printf("asdfasdfas");
+                SolutionTemp = solver_gpu[idx].JB1.transpose().lazyProduct(solver_gpu[idx].FirstDual);
+
+                SolutionTemp += solver_gpu[idx].JB2.transpose().lazyProduct(solver_gpu[idx + 1].FirstDual);
+
+            }
+            solver_gpu[idx].FirstVarible -= SolutionTemp;
+            solver_gpu[idx].FirstVarible = PsedoInverse(solver_gpu[idx].Hessian).lazyProduct(solver_gpu[idx].FirstVarible);
+
+
+            // solver_gpu[idx].convergence = SolutionTemp;
+
+
+       
+
+
+    }
+}
+
+
+void tiny_solve_cuda(TinyCache *cache, tinytype *shared, tinytype *bigDual)
 {
     TinyCache *solver_gpu;
 
-    SharedMatrix *dshared;
+    double *dshared;
 
-    TempBigDual *DbigDual;
+    double *d_dual; // FirstStageDual
+    cudaMalloc(&d_dual, StateShape * horizon * sizeof(double));
 
-///// for sparse
-    const int rows = horizon * StateShape;
-    const int cols = horizon * StateShape;
-    const int size = rows * cols;
-
-    float* d_values;
-    int* d_colIndices;
-    int* d_rowPointers;
-
-    cudaMalloc(&d_values, size * sizeof(float));
-    cudaMalloc(&d_colIndices, size * sizeof(int));
-    cudaMalloc(&d_rowPointers, (rows + 1) * sizeof(int));
-
-    float* d_x; // Solution vector
-    cudaMalloc(&d_x, rows * sizeof(float));
-
-////
-
+    ////
 
     checkCudaErrors(cudaMalloc((void **)&solver_gpu, sizeof(TinyCache) * horizon));
     checkCudaErrors(cudaMemcpy(solver_gpu, cache, sizeof(TinyCache) * horizon, cudaMemcpyHostToDevice));
 
-/////
+    /////
     checkCudaErrors(cudaMalloc((void **)&dshared, sizeof(SharedMatrix)));
-    checkCudaErrors(cudaMemcpy(dshared, shared, sizeof(SharedMatrix), 
-    cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(dshared, shared, sizeof(SharedMatrix),
+                               cudaMemcpyHostToDevice));
 
-/////
-    checkCudaErrors(cudaMalloc((void **)&DbigDual, sizeof(TempBigDual)));
-    checkCudaErrors(cudaMemcpy(DbigDual, bigDual, sizeof(TempBigDual), 
-    cudaMemcpyHostToDevice));
+    cusparseHandle_t handle;
+    (cusparseCreate(&handle));
+    cusparseMatDescr_t descrA;
+    cusparseCreateMatDescr(&descrA);
+    cusparseSetMatType(descrA, CUSPARSE_MATRIX_TYPE_GENERAL);
+    cusparseSetMatIndexBase(descrA, CUSPARSE_INDEX_BASE_ZERO);
 
+    int Nrows = StateShape * horizon;
+    int Ncols = StateShape * horizon;
+    int N = Nrows;
+
+    int nnz = 0;
+    const int lda = Nrows;
+    double *d_A;
+    int *d_A_RowIndices;
+    int *d_A_ColIndices;
+
+    int *d_nnzPerVector;
+    checkCudaErrors(cudaMalloc(&d_nnzPerVector, Nrows * sizeof(*d_nnzPerVector)));
+    cusolverSpHandle_t solver_handle;
+    cusolverSpCreate(&solver_handle);
+    int singularity;
+    double *d_x;
+    (cudaMalloc(&d_x, Ncols * sizeof(double)));
 
     for (int i = 0; i < 1; i++)
     {
 
-       
-
-        solve_kernel<<<1, horizon>>>(solver_gpu, dshared , d_values , d_colIndices  , d_rowPointers);
+        solve_kernel<<<1, horizon>>>(solver_gpu, dshared, d_dual);
         checkCudaErrors(cudaDeviceSynchronize());
 
+        //////
 
-     
+        cusparseDnnz(handle, CUSPARSE_DIRECTION_ROW, Nrows, Ncols, descrA, dshared, lda, d_nnzPerVector, &nnz);
 
+        (cudaMalloc(&d_A, nnz * sizeof(*d_A)));
+        (cudaMalloc(&d_A_RowIndices, (Nrows + 1) * sizeof(*d_A_RowIndices)));
+        (cudaMalloc(&d_A_ColIndices, nnz * sizeof(*d_A_ColIndices)));
 
-        // for(int i = 0 ; i < horizon ; i++)
-        // {
-        //     for(int j = 0 ; j < StateShape ; j ++)
-        //     {
-        //         // DbigDual->row(i * StateShape + j)[0] = solver_gpu[i].FirstDual.row(j)[0];
+        (cusparseDdense2csr(handle, Nrows, Ncols, descrA, dshared, lda, d_nnzPerVector, d_A, d_A_RowIndices, d_A_ColIndices));
 
-        //         DbigDual->row(0)[0] = 0;
+        (cusolverSpDcsrlsvqr(solver_handle, N, nnz, descrA, d_A, d_A_RowIndices, d_A_ColIndices, d_dual, 0.000001, 0, d_x, &singularity));
 
-        //     }
-        // }
+    checkCudaErrors(cudaDeviceSynchronize());
 
+        Second_solve_kernel<<<1, horizon>>>(solver_gpu , d_x);
+        checkCudaErrors(cudaDeviceSynchronize());
 
-        debug(cache, dshared);
+        /////
     }
 
     checkCudaErrors(cudaMemcpy(cache, solver_gpu, sizeof(TinyCache) * horizon, cudaMemcpyDeviceToHost));
 
-        /////
+    /////
+    debug(cache);
+
 
     checkCudaErrors(cudaMemcpy(shared, dshared, sizeof(SharedMatrix), cudaMemcpyDeviceToHost));
 
-    checkCudaErrors(cudaMemcpy(bigDual, DbigDual, sizeof(TempBigDual), cudaMemcpyDeviceToHost));
+    /////
+
+    checkCudaErrors(cudaMemcpy(bigDual, d_dual, sizeof(TempBigDual), cudaMemcpyDeviceToHost));
+
+
 }
-
-
-__global__ void denseToCSR(const float* dense, float* values, int* colIndices, int* rowPointers, int rows, int cols) {
-    int row = blockIdx.x * blockDim.x + threadIdx.x;
-    if (row < rows) {
-        int idx = rowPointers[row];
-        for (int col = 0; col < cols; ++col) {
-            float val = dense[row * cols + col];
-            if (val != 0) {
-                values[idx] = val;
-                colIndices[idx] = col;
-                idx++;
-            }
-        }
-        rowPointers[row + 1] = idx;
-    }
-}
-

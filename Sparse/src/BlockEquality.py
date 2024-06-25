@@ -418,25 +418,31 @@ class MyModel(nn.Module):
 
         temp = LowerLeftDown @ SolutionPhase1Varible
 
-        print("temp = \n" , temp)
+        # print("temp = \n" , temp)
 
         SolutionPhase1Dual = TestVector2 - temp
 
         # print("SolutionPhase1Varible = " , SolutionPhase1Varible)
-        print("equaltity = \n" , self.equality)
-        print("SolutionPhase1Dual = \n" , SolutionPhase1Dual)
+        # print("equaltity = \n" , self.equality)
+        # print("SolutionPhase1Dual = \n" , SolutionPhase1Dual)
 
         dual = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) : , self.horizon * (self.state_shape + self.control_shape) : ]
 
         SolutionPhase2Dual = dual.inverse() @ SolutionPhase1Dual
 
+        # print("SolutionPhase2Dual = " , SolutionPhase2Dual)
+
         temp = self.jacobian.t() @ SolutionPhase2Dual
+
+        # print("temp = " , temp)
 
         UpperRight = self.final_matrix[ : self.horizon * (self.state_shape + self.control_shape) , : self.horizon * (self.state_shape + self.control_shape)]
 
         SolutionPhase2Varible = SolutionPhase1Varible - temp
 
         SolutionPhase2Varible = UpperRight.inverse() @ SolutionPhase2Varible
+
+        print("SolutionPhase2Varible = " , SolutionPhase2Varible)
 
         
         # print(SolutionPhase2Varible)

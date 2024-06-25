@@ -22,21 +22,14 @@ void check(T result, char const *const func, const char *const file, int const l
     }
 }
 
-__global__ void solve_kernel(TinyCache *solver_gpu, SharedMatrix *dshared , float* values , int* colIndices, int* rowPointers);
 
-void tiny_solve_cuda(TinyCache *cache, SharedMatrix *shared , TempBigDual * bigDual);
 
-__global__ void denseToCSR(const float* dense, float* values, int* colIndices, int* rowPointers, int rows, int cols);
+__global__ void solve_kernel(TinyCache *solver_gpu, double *dshared , double* values);
 
-__device__ static inline double dot_product(double *a, double *b, int number)
-{
-    double result = 0;
-    for (int i = 0; i < number; i++)
-    {
-        result += a[i] * b[i];
-    }
-    return result;
-}
+void tiny_solve_cuda(TinyCache *cache, tinytype *shared , tinytype * bigDual);
+
+__device__ double MyatomicAdd(double* address, double val);
+
 
 __device__ static inline void copy(double *a, gradient b, int number)
 {
@@ -143,14 +136,14 @@ __device__ static inline void mycopy(SharedMatrix *shared, temp temp1, temp temp
     {
         for (int j = 0; j < StateShape; j++)
         {
-            atomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
+            MyatomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
 
        
-            atomicAdd(&shared->row(i + base )[j + base + StateShape], temp2.row(i)[j]);
+            MyatomicAdd(&shared->row(i + base )[j + base + StateShape], temp2.row(i)[j]);
 
-            atomicAdd(&shared->row(i + base + StateShape)[j + base], temp3.row(i)[j]);
+            MyatomicAdd(&shared->row(i + base + StateShape)[j + base], temp3.row(i)[j]);
 
-            atomicAdd(&shared->row(i + base + StateShape)[j + base + StateShape], temp4.row(i)[j]);
+            MyatomicAdd(&shared->row(i + base + StateShape)[j + base + StateShape], temp4.row(i)[j]);
             
         }
     }
@@ -164,7 +157,7 @@ __device__ static inline void mycopy2(SharedMatrix *shared, temp temp1, int idx)
     {
         for (int j = 0; j < StateShape; j++)
         {
-            atomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);        
+            MyatomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);        
         }
     }
 }
@@ -182,3 +175,12 @@ __device__ static inline void DebugCopy(SharedMatrix *shared, SharedMatrix *debu
     }
 }
 
+
+__device__ static inline void SecondPhaseCopy(FirstPhaseDual * FirstDual , double * d_x ,int idx) 
+{
+    for(int i = 0 ; i < StateShape ; i ++)
+    {
+        FirstDual->row(i)[0] = d_x[i + idx * StateShape];
+    }
+
+}

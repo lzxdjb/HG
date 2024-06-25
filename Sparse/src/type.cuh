@@ -42,9 +42,9 @@ using Eigen::Matrix;
     typedef Matrix<tinytype,   StateShape * 2 + ControlShape , 1 > FinalColumn;   
     
 
-    typedef Matrix<float,  horizon*StateShape , horizon * StateShape > SharedMatrix;
+    typedef Matrix<tinytype,  horizon*StateShape , horizon * StateShape > SharedMatrix;
 
-    typedef Matrix<float,  horizon*StateShape , 1 > SharedFirstTemp;  
+    typedef Matrix<tinytype,  horizon*StateShape , 1 > SharedFirstTemp;  
 
 
     typedef Matrix<tinytype, StateShape, StateShape > temp; 
@@ -97,3 +97,5 @@ using Eigen::Matrix;
        
 
     } TinyCache;
+
+

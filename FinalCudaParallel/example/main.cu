@@ -5,6 +5,8 @@ TinyCache cache[horizon];
 
 SharedMatrix shared;
 
+TempBigDual tempGibDual;
+
 int main()
 {
     shared.setZero();
@@ -35,8 +37,12 @@ int main()
         cache[i].R = Rtemp;
         cache[i].debug.setZero();
     }
-    tiny_solve_cuda(cache , &shared);
-    std::cout<<"shared = \n "<<shared<<std::endl;
+    tiny_solve_cuda(cache , &shared , &tempGibDual);
+
+    std::cout<<"shared = \n" << shared << std::endl ; 
+
+    std::cout<<"tempBibDual = \n" << tempGibDual << std::endl ; 
+    // std::cout<<"shared = \n "<<shared<<std::endl;
 
 
 
