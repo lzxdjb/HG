@@ -1,12 +1,19 @@
 add_executable(main main.cu)
 
+
+# set_target_properties(main PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
+
 find_library(CUSOLVER_LIBRARY cusolver PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 if(NOT CUSOLVER_LIBRARY)
     message(FATAL_ERROR "cuSOLVER library not found")
 endif()
 
-# Link the libraries
-target_link_libraries(main LINK_PUBLIC tinympc ${CUSPARSE_LIBRARY} ${CUSOLVER_LIBRARY})
+target_link_libraries(main PRIVATE tinympc ${CUSPARSE_LIBRARY} ${CUSOLVER_LIBRARY})
+
+set_target_properties(main PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+)
 
 
 

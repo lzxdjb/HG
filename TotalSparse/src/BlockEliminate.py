@@ -373,6 +373,9 @@ class MyModel(nn.Module):
         hessian = self.getHessian()
         # print("hessian = ")
         Jacobian = self.getJB()
+
+        # print("Jacobian \n= " , Jacobian)
+
         JT = Jacobian.t()
         zero_block = torch.zeros(Jacobian.size(0), Jacobian.size(0) ,dtype=torch.float64)
 
@@ -382,70 +385,48 @@ class MyModel(nn.Module):
 
         self.final_matrix = torch.cat((top_block, bottom_block), dim=0)
 
-        self.Lower = torch.eye(self.final_matrix.size(0), dtype=torch.float64)
-
         # print("self.final_matrix" , self.final_matrix)
 
+        self.Lower = torch.eye(self.final_matrix.size(0), dtype=torch.float64)
+
+        # L , U = Tools.lu_no_pivoting(self.final_matrix)
 
        
         for i in range(horizon):
             self.EliminateBlock(i)
-
-        # print("self.Lower = " ,  self.Lower[self.horizon * (self.state_shape + self.control_shape) :  , : self.horizon * (self.state_shape + self.control_shape)])
-            
-        # print("self.Upper = \n " ,  self.final_matrix[self.horizon * (self.state_shape + self.control_shape)  :   , self.horizon * (self.state_shape + self.control_shape): ])
-
-
-        TestMatrix = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) :  , self.horizon * (self.state_shape + self.control_shape) : ]
-        
+       
         TestVector = self.getfinalcolumn()
 
         TestVector1 = TestVector[: self.horizon * (self.state_shape + self.control_shape)  , : ] #### h(x)
 
         TestVector2 = TestVector[self.horizon * (self.state_shape + self.control_shape) : , : ]
-      
+        # print("TestMatrix  = " , TestVector.shape )
 
-        # zzz = self.Lower[ : self.horizon * (self.state_shape + self.control_shape) , : self.horizon * (self.state_shape + self.control_shape)]
-        # print("zzz = " , zzz)
-
-        varible = self.Lower[ : self.horizon * (self.state_shape + self.control_shape) ,  : self.horizon * (self.state_shape + self.control_shape)]
-
-        # SolutionPhase1Varible = varible.inverse() @ TestVector1
-
+        base = self.horizon * (self.control_shape + self.state_shape)
+        
         SolutionPhase1Varible = TestVector1
 
-        LowerLeftDown = self.Lower[self.horizon * (self.state_shape + self.control_shape) : , : self.horizon * (self.state_shape + self.control_shape)]
-
-        temp = LowerLeftDown @ SolutionPhase1Varible
-
-        # print("temp = \n" , temp)
+        temp = self.Lower[base :  ,  : base] @ SolutionPhase1Varible
 
         SolutionPhase1Dual = TestVector2 - temp
 
-        # print("SolutionPhase1Varible = " , SolutionPhase1Varible)
-        # print("equaltity = \n" , self.equality)
-        # print("SolutionPhase1Dual = \n" , SolutionPhase1Dual)
-
         dual = self.final_matrix[self.horizon * (self.state_shape + self.control_shape) : , self.horizon * (self.state_shape + self.control_shape) : ]
+
+        print("dual matrix = " , dual)
 
         SolutionPhase2Dual = dual.inverse() @ SolutionPhase1Dual
 
-        # print("SolutionPhase2Dual = " , SolutionPhase2Dual)
 
         temp = self.jacobian.t() @ SolutionPhase2Dual
 
-        # print("temp = " , temp)
-
-        UpperRight = self.final_matrix[ : self.horizon * (self.state_shape + self.control_shape) , : self.horizon * (self.state_shape + self.control_shape)]
+        print("SolutionPhase2Dual = " , SolutionPhase2Dual)
 
         SolutionPhase2Varible = SolutionPhase1Varible - temp
 
-        SolutionPhase2Varible = UpperRight.inverse() @ SolutionPhase2Varible
-
-        print("SolutionPhase2Varible = " , SolutionPhase2Varible)
+        SolutionPhase2Varible = hessian.inverse() @ SolutionPhase2Varible
 
         
-        # print(SolutionPhase2Varible)
+        print(SolutionPhase2Varible)
 
         # return self.final_matrix 
 
@@ -524,7 +505,7 @@ class MyModel(nn.Module):
                 # print()
 
                 vector = A @ B
-                # print("vector = " , vector[ : self.horizon * (self.state_shape + self.control_shape)  , : ])
+                print("vector = " , vector[ : self.horizon * (self.state_shape + self.control_shape)  , : ])
                 self.GetFinalSolution()
 
                 exit()

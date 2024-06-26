@@ -52,17 +52,13 @@ int main()
     {
         cache[i].state1<<temp;
         cache[i].control<<init_control;
-        cache[i].initial_state<< init_state;
-        cache[i].final_state << final_state;
-        cache[i].Q = Qtemp;
-        cache[i].R = Rtemp;
-        cache[i].debug.setZero();
+     
     }
 
     tinytype *shared = (tinytype*)malloc(StateShape * horizon * StateShape * horizon * sizeof(tinytype));
     tinytype *tempGibDual = (tinytype *)malloc(StateShape * horizon * sizeof(tinytype));
     
-    tiny_solve_cuda(cache , shared , tempGibDual);
+    tiny_solve_cuda(cache , shared , tempGibDual , Qtemp , Rtemp , init_state , final_state);
 
     debug1(shared);
     debug2(tempGibDual);

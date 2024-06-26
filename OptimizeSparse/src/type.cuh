@@ -1,6 +1,5 @@
 #pragma once
 #include <Eigen/Dense>
-#include <Eigen/Sparse>
 
 typedef double tinytype;  // should be double if you want to generate code
 
@@ -10,7 +9,7 @@ typedef double tinytype;  // should be double if you want to generate code
 const int StateShape = 3;
 const int ControlShape = 2;
 const double T = 1;
-const int horizon = 2;
+const int horizon = 100;
 
 using Eigen::Matrix;
 
@@ -61,14 +60,8 @@ using Eigen::Matrix;
     {
         state state1;
         control control;
-        convergence convergence;
-        state initial_state;
-        state final_state;
-        QCost Q;
-        RCost R;
-        // varible varible;
+
         gradient gradient;
-        equality equality;
         Hessian Hessian ;
 
         JB JB1;
@@ -76,26 +69,13 @@ using Eigen::Matrix;
         JB LowerLeftDown1;
         JB LowerLeftDown2;
 
-        FinalMatrix OriginalMatrix;
-        FinalColumn OriginalColumn;
-
-        FinalColumn varible1;
-        FinalColumn varible2;
-
-
-        FinalMatrix L;
-        FinalMatrix FinalMatrix;
-        FinalColumn FinalColumn;
-
-        SharedMatrix debug;
-
+   
         FirstPhaseVarible FirstVarible;
         FirstPhaseDual FirstDual;
 
-        FirstPhaseDual solutionTemp;
-
-       
 
     } TinyCache;
+
+
 
 
