@@ -9,7 +9,7 @@ typedef double tinytype;  // should be double if you want to generate code
 const int StateShape = 3;
 const int ControlShape = 2;
 const double T = 1;
-const int horizon = 100;
+const int horizon = 3;
 
 using Eigen::Matrix;
 
