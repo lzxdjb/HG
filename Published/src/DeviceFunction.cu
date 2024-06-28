@@ -97,49 +97,49 @@ __device__ Hessian PsedoInverse(Hessian hessian)
     return temp;
 }
 
-__device__ void mycopy(SharedMatrix *shared, temp temp1, temp temp2, temp temp3, temp temp4, int idx)
-{
-    int base = (idx - 1) * StateShape;
+// __device__ void mycopy(SharedMatrix *shared, temp temp1, temp temp2, temp temp3, temp temp4, int idx)
+// {
+//     int base = (idx - 1) * StateShape;
 
-    for (int i = 0; i < StateShape; i++)
-    {
-        for (int j = 0; j < StateShape; j++)
-        {
-            MyatomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
+//     for (int i = 0; i < StateShape; i++)
+//     {
+//         for (int j = 0; j < StateShape; j++)
+//         {
+//             MyatomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
 
-            MyatomicAdd(&shared->row(i + base)[j + base + StateShape], temp2.row(i)[j]);
+//             MyatomicAdd(&shared->row(i + base)[j + base + StateShape], temp2.row(i)[j]);
 
-            MyatomicAdd(&shared->row(i + base + StateShape)[j + base], temp3.row(i)[j]);
+//             MyatomicAdd(&shared->row(i + base + StateShape)[j + base], temp3.row(i)[j]);
 
-            MyatomicAdd(&shared->row(i + base + StateShape)[j + base + StateShape], temp4.row(i)[j]);
-        }
-    }
-}
+//             MyatomicAdd(&shared->row(i + base + StateShape)[j + base + StateShape], temp4.row(i)[j]);
+//         }
+//     }
+// }
 
-__device__ void mycopy2(SharedMatrix *shared, temp temp1, int idx)
-{
-    int base = (idx - 1) * StateShape;
+// __device__ void mycopy2(SharedMatrix *shared, temp temp1, int idx)
+// {
+//     int base = (idx - 1) * StateShape;
 
-    for (int i = 0; i < StateShape; i++)
-    {
-        for (int j = 0; j < StateShape; j++)
-        {
-            MyatomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
-        }
-    }
-}
+//     for (int i = 0; i < StateShape; i++)
+//     {
+//         for (int j = 0; j < StateShape; j++)
+//         {
+//             MyatomicAdd(&shared->row(i + base)[j + base], temp1.row(i)[j]);
+//         }
+//     }
+// }
 
-__device__ void DebugCopy(SharedMatrix *shared, SharedMatrix *debug)
-{
+// __device__ void DebugCopy(SharedMatrix *shared, SharedMatrix *debug)
+// {
 
-    for (int i = 0; i < horizon * StateShape; i++)
-    {
-        for (int j = 0; j < horizon * StateShape; j++)
-        {
-            debug->row(i)[j] = shared->row(i)[j];
-        }
-    }
-}
+//     for (int i = 0; i < horizon * StateShape; i++)
+//     {
+//         for (int j = 0; j < horizon * StateShape; j++)
+//         {
+//             debug->row(i)[j] = shared->row(i)[j];
+//         }
+//     }
+// }
 
 __device__ void SecondPhaseCopy(FirstPhaseDual *FirstDual, double *d_x, int idx)
 {
@@ -164,16 +164,16 @@ __device__ double MyatomicAdd(double *address, double val)
     return __longlong_as_double(old);
 }
 
-__device__ double empty(SharedMatrix *matrix)
-{
-    for (int i = 0; i < StateShape * horizon; i++)
-    {
-        for (int j = 0; j < StateShape * horizon; j++)
-        {
-            matrix->row(i)[j] = 0;
-        }
-    }
-}
+// __device__ double empty(SharedMatrix *matrix)
+// {
+//     for (int i = 0; i < StateShape * horizon; i++)
+//     {
+//         for (int j = 0; j < StateShape * horizon; j++)
+//         {
+//             matrix->row(i)[j] = 0;
+//         }
+//     }
+// }
 
 int dense_to_csr1(UpperDualCache h_A_dense, SparseUpperDualCache *sparse, int Nrows, int Ncols,
                   RowIndices *h_A_RowIndices, ColIndices *h_A_ColIndices)

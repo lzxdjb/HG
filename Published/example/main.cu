@@ -67,9 +67,9 @@ int main()
     tinytype *shared = (tinytype*)malloc(StateShape * horizon * StateShape * horizon * sizeof(tinytype));
     tinytype *tempbigDual = (tinytype *)malloc(StateShape * horizon * sizeof(tinytype));
     
-    tiny_solve_cuda(cache , shared , tempbigDual , Qtemp , Rtemp , init_state , final_state);
+    tiny_solve_cuda(cache  , tempbigDual , Qtemp , Rtemp , init_state , final_state);
 
-    debug1(shared);
+    // debug1(shared);
     // debug2(tempbigDual);
 
   

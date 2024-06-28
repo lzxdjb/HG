@@ -42,11 +42,11 @@ __device__ JB GetJB2(state state1, control control);
 
 __device__ Hessian PsedoInverse(Hessian hessian);
 
-__device__ void mycopy(SharedMatrix *shared, temp temp1, temp temp2 , temp temp3 , temp temp4 ,  int idx);
+// __device__ void mycopy(SharedMatrix *shared, temp temp1, temp temp2 , temp temp3 , temp temp4 ,  int idx);
 
-__device__ void mycopy2(SharedMatrix *shared, temp temp1, int idx);
+// __device__ void mycopy2(SharedMatrix *shared, temp temp1, int idx);
 
-__device__ void DebugCopy(SharedMatrix *shared, SharedMatrix *debug);
+// __device__ void DebugCopy(SharedMatrix *shared, SharedMatrix *debug);
 
 __device__ void SecondPhaseCopy(FirstPhaseDual * FirstDual , double * d_x ,int idx) ;
 
@@ -54,7 +54,7 @@ __device__ void SecondPhaseCopy(FirstPhaseDual * FirstDual , double * d_x ,int i
 __device__ double MyatomicAdd(double *address, double val);
 
 
-__device__ double empty(SharedMatrix *matrix);
+// __device__ double empty(SharedMatrix *matrix);
 
 
 __device__  int dense_to_csr1(UpperDualCache h_A_dense, SparseUpperDualCache *sparse,  int Nrows, int Ncols,

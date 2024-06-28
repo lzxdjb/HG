@@ -21,7 +21,7 @@ def shift_movement(T, t0, x0, u, x_f, f):
 
 if __name__ == "__main__":
     T = 0.2  # sampling time [s]
-    N = 2  # prediction horizon
+    N = 100  # prediction horizon
     rob_diam = 0.3  # [m]
     v_max = 1e100
     omega_max = 1e100

@@ -1,15 +1,13 @@
 #pragma once
 #include <Eigen/Dense>
 
-typedef double tinytype;  // should be double if you want to generate code
+typedef double tinytype;  
 
-// #define NSTATES 12
-// #define NINPUTS 4
 
 const int StateShape = 3;
 const int ControlShape = 2;
 const double T = 1;
-const int horizon = 3;
+const int horizon = 100;
 
 using Eigen::Matrix;
 
@@ -41,7 +39,7 @@ using Eigen::Matrix;
     typedef Matrix<tinytype,   StateShape * 2 + ControlShape , 1 > FinalColumn;   
     
 
-    typedef Matrix<tinytype,  horizon*StateShape , horizon * StateShape > SharedMatrix;
+    // typedef Matrix<tinytype,  horizon*StateShape , horizon * StateShape > SharedMatrix;
 
     typedef Matrix<tinytype,  horizon*StateShape , 1 > SharedFirstTemp;  
 
@@ -102,9 +100,6 @@ using Eigen::Matrix;
         ColIndices h_A_ColIndices;
 
         int nnz = 0;
-
-
-
 
     } TinyCache;
 
