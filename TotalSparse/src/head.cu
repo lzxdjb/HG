@@ -39,7 +39,7 @@ void debug(TinyCache *solvergpu)
         // std::cout << "varible2 = \n"
         //           << solvergpu[i].varible2 << std::endl;
 
-        // std::cout << "FirstVarible = \n"<< solvergpu[i].FirstVarible << std::endl;
+        std::cout << "FirstVarible = \n"<< solvergpu[i].FirstVarible << std::endl;
 
         // std::cout << "FirstDual = \n" << solvergpu[i].FirstDual << std::endl;
 
@@ -385,17 +385,17 @@ void tiny_solve_cuda(TinyCache *cache, tinytype *shared, tinytype *bigDual, QCos
         // }
         // std::cout<<std::endl;
 
-        // for (int i = 0; i < 41; ++i)
-        //     printf("d_sparsematrix[%i] = %f ", i, h_sparsematrix[i]);
+        for (int i = 0; i < 41; ++i)
+            printf(" %f ", h_sparsematrix[i]);
+        printf("\n");
+        // printf("h_A_RowIndices] = \n ");
+        // for (int i = 0; i < StateShape * horizon + 1; ++i)
+        //     printf("%i ", h_RowIndices[i]);
         // printf("\n");
-        printf("h_A_RowIndices] = \n ");
-        for (int i = 0; i < StateShape * horizon + 1; ++i)
-            printf("%i ", h_RowIndices[i]);
-        printf("\n");
-        printf("h_ColIndices = \n ");
-        for (int i = 0; i < (41); ++i)
-            printf("xi%i ", h_ColIndices[i]);
-        printf("\n");
+        // printf("h_ColIndices = \n ");
+        // for (int i = 0; i < (41); ++i)
+        //     printf("xi%i ", h_ColIndices[i]);
+        // printf("\n");
 
         double * d_my_solution;
         checkCudaErrors(cudaMalloc((void**)&d_my_solution, sizeof(double) * (horizon * StateShape)));
@@ -450,13 +450,13 @@ void tiny_solve_cuda(TinyCache *cache, tinytype *shared, tinytype *bigDual, QCos
         //     printf("A[%i] = %f ", i, h_A[i]);
         // printf("\n");
         // printf("h_A_RowIndices] = \n ");
-        for (int i = 0; i < (Nrows + 1); ++i)
-            printf("%i ", h_A_RowIndices[i]);
-        printf("\n");
+        // for (int i = 0; i < (Nrows + 1); ++i)
+        //     printf("%i ", h_A_RowIndices[i]);
+        // printf("\n");
      
           printf("h_A_ColIndices = \n ");
         for (int i = 0; i < 41; ++i)
-            printf("la%i ", h_A_ColIndices[i]);
+            printf("%d ", h_A_ColIndices[i]);
         printf("\n");
 
         for (int i = 0; i < StateShape * horizon; ++i)
@@ -473,7 +473,7 @@ void tiny_solve_cuda(TinyCache *cache, tinytype *shared, tinytype *bigDual, QCos
     checkCudaErrors(cudaMemcpy(cache, solver_gpu, sizeof(TinyCache) * (horizon + 1), cudaMemcpyDeviceToHost));
 
     std::cout<<"my answer"<<std::endl;
-    debug(cache);
+    // debug(cache);
 
     checkCudaErrors(cudaMemcpy(shared, dshared, sizeof(SharedMatrix), cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaMemcpy(bigDual, d_dual, sizeof(TempBigDual), cudaMemcpyDeviceToHost));

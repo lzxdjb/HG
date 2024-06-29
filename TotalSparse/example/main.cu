@@ -69,7 +69,7 @@ int main()
     
     tiny_solve_cuda(cache , shared , tempbigDual , Qtemp , Rtemp , init_state , final_state);
 
-    debug1(shared);
+    // debug1(shared);
     // debug2(tempbigDual);
 
   

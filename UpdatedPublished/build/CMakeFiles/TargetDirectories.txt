@@ -1,0 +1,9 @@
+/media/lzx/lzx/HG/UpdatedPublished/build/CMakeFiles/edit_cache.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/CMakeFiles/rebuild_cache.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/src/CMakeFiles/tinympc.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/src/CMakeFiles/edit_cache.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/src/CMakeFiles/rebuild_cache.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/example/CMakeFiles/main.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/example/CMakeFiles/emplate.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/example/CMakeFiles/edit_cache.dir
+/media/lzx/lzx/HG/UpdatedPublished/build/example/CMakeFiles/rebuild_cache.dir

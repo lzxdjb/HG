@@ -55,7 +55,7 @@ void debug(TinyCache *solvergpu)
         // std::cout << "varible2 = \n"
         //           << solvergpu[i].varible2 << std::endl;
 
-        std::cout << "FirstVarible = \n"<< solvergpu[i].FirstVarible << std::endl;
+        // std::cout << "FirstVarible = \n"<< solvergpu[i].FirstVarible << std::endl;
 
         // std::cout << "FirstDual = \n" << solvergpu[i].FirstDual << std::endl;
 

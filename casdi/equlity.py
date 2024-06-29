@@ -8,6 +8,34 @@ import numpy as np
 import time
 from draw import Draw_MPC_point_stabilization_v1
 
+class IterationCallback(ca.Callback):
+    def __init__(self, name, opts):
+        ca.Callback.__init__(self)
+        self.construct(name, opts)
+        self.iteration_times = []
+
+    def get_n_in(self): return 2
+
+    def get_n_out(self): return 1  # Update to 1 output
+
+    def get_name_in(self, i):
+        return 'f' if i == 0 else 'x'
+
+    def get_name_out(self, i): return 'ret'
+
+    def init(self):
+        self.iter = 0
+        self.last_time = time.time()
+
+    def eval(self, arg):
+        current_time = time.time()
+        iteration_time = current_time - self.last_time
+        self.iteration_times.append(iteration_time)
+        self.last_time = current_time
+        self.iter += 1
+        return [0]  # Return a scalar value as required by CasADi
+
+
 def shift_movement(T, t0, x0, u, x_f, f):
     f_value = f(x0, u[:, 0])
     control = u[:, 0]
@@ -21,7 +49,7 @@ def shift_movement(T, t0, x0, u, x_f, f):
 
 if __name__ == "__main__":
     T = 0.2  # sampling time [s]
-    N = 100  # prediction horizon
+    N = 200  # prediction horizon
     rob_diam = 0.3  # [m]
     v_max = 1e100
     omega_max = 1e100
@@ -76,21 +104,20 @@ if __name__ == "__main__":
 
     nlp_prob = {"f": obj, "x": opt_variables, "p": P, "g": ca.vertcat(*g)}
 
-    # print("Objective function:")
-    # print(obj)
+    iteration_callback = IterationCallback('iteration_callback', {})
 
-    # print("\nConstraints:")
-    # for constraint in g:
-        # print(constraint)
 
-    # print("#############")
+# Update the solver options to include the iteration callback
     opts_setting = {
-        "ipopt.max_iter": 100,
-        "ipopt.print_level": 0,
-        "print_time": 0,
-        "ipopt.acceptable_tol": 1e-8,
-        "ipopt.acceptable_obj_change_tol": 1e-6,
-    }
+    "ipopt.max_iter": 100,
+    "ipopt.print_level": 0,
+    "print_time": 0,
+    "ipopt.acceptable_tol": 1e-8,
+    "ipopt.acceptable_obj_change_tol": 1e-6,
+}
+
+
+
 
     solver = ca.nlpsol("solver", "ipopt", nlp_prob, opts_setting)
 
@@ -141,19 +168,42 @@ if __name__ == "__main__":
             (u0.T.reshape(-1, 1), next_states.T.reshape(-1, 1))
         )
         t_ = time.time()
-        res = solver(x0=init_control, p=c_p, lbg=lbg, lbx=lbx, ubg=ubg, ubx=ubx)
+        # res = solver(x0=init_control, p=c_p, lbg=lbg, lbx=lbx, ubg=ubg, ubx=ubx)
+        res = solver(x0=init_control, p=c_p)
 
-        objective_value = res['f']  
-        objective_value_np = objective_value.full().item()
-
-        index_t.append(time.time() - t_)
-        estimated_opt = res[
-            "x"
-        ].full()  # the feedback is in the series [u0, x0, u1, x1, ...]
         end_time = time.time()
         elapsed_time = end_time - start_time
 
         print("elapsed_time = " , elapsed_time)
+
+        # Retrieve the solver statistics
+        stats = solver.stats()
+
+# Print the number of iterations
+        num_iterations = stats["iter_count"]
+        print(f"Number of iterations: {num_iterations}")
+
+        # Print the time taken for each iteration (if available)
+        if "t_proc_ipopt" in stats and "t_proc_ipopt_solver_call" in stats:
+            iter_times = stats["t_proc_ipopt"]
+            total_time = stats["t_proc_ipopt_solver_call"]
+            print(f"Total solver time: {total_time:.4f} seconds")
+            for i, t in enumerate(iter_times):
+                print(f"Iteration {i+1}: {t:.4f} seconds")
+        else:
+            print("Iteration times not available in solver statistics.")
+
+        # objective_value = res['f']  
+        # objective_value_np = objective_value.full().item()
+
+        # index_t.append(time.time() - t_)
+        # estimated_opt = res[
+        #     "x"
+        # ].full()  # the feedback is in the series [u0, x0, u1, x1, ...]
+        # end_time = time.time()
+        # elapsed_time = end_time - start_time
+
+        # print("elapsed_time = " , elapsed_time)
         break
         u0 = estimated_opt[:N * n_controls].reshape(N, n_controls).T  # (n_controls, N)
         x_m = estimated_opt[N * n_controls:].reshape(N + 1, n_states).T  # [n_states, N]

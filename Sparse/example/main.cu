@@ -64,8 +64,8 @@ int main()
     
     tiny_solve_cuda(cache , shared , tempGibDual);
 
-    debug1(shared);
-    debug2(tempGibDual);
+    // debug1(shared);
+    // debug2(tempGibDual);
 
   
 }
